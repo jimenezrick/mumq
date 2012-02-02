@@ -14,7 +14,7 @@ start() ->
 %%%===================================================================
 
 start(_StartType, _StartArgs) ->
-    error_logger:info_report([{"μMQ", "application started"}]),
+    error_logger:info_report([{"mumq", "application started"}]),
     mumq_sup:start_link().
 
 stop(_State) ->
