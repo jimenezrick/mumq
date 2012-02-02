@@ -1,5 +1,10 @@
 REBAR_URL=http://github.com/downloads/basho/rebar/rebar
 
+.PHONY: all clean
+
+all: rebar deps
+	./rebar compile
+
 rebar:
 	wget $(REBAR_URL)
 	chmod +x rebar
@@ -7,5 +12,5 @@ rebar:
 deps:
 	./rebar get-deps
 
-all: rebar deps
-	./rebar compile
+clean:
+	rm -rf rebar ebin deps
