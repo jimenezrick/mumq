@@ -7,7 +7,7 @@
          stop/1]).
 
 start() ->
-    application:start(?MODULE).
+    application:start(mumq).
 
 %%%===================================================================
 %%% Application callbacks
