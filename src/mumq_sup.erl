@@ -1,4 +1,3 @@
-
 -module(mumq_sup).
 
 -behaviour(supervisor).
