@@ -1,12 +1,12 @@
 {application, mumq,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "Message broker"},
+  {vsn, "0.1"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {mod, { mumq_app, []}},
+  {mod, {mumq_app, []}},
   {env, []}
  ]}.
