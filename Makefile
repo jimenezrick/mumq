@@ -13,4 +13,4 @@ deps:
 	./rebar get-deps
 
 clean:
-	rm -rf rebar ebin deps
+	rm -rf ebin

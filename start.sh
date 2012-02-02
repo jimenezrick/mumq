@@ -1,3 +1,3 @@
 #!/bin/sh
 
-erl -pa deps/*/ebin -boot start_sasl -s mumq_app
+erl -pa ebin -pa deps/*/ebin -boot start_sasl -run mumq_app
