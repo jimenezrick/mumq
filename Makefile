@@ -1,6 +1,6 @@
-REBAR_URL ?= http://github.com/downloads/basho/rebar/rebar
+REBAR_URL ?= http://cloud.github.com/downloads/basho/rebar/rebar
 
-ifeq ($(strip $(shell which wget)), '')
+ifeq ($(words $(shell which wget)), 1)
 REBAR_GET ?= wget -q $(REBAR_URL)
 else
 REBAR_GET ?= curl -s -f $(REBAR_URL) >rebar
