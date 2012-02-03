@@ -3,8 +3,11 @@
   {description, "Message broker"},
   {vsn, "0.1"},
   {modules, [
+             mumq,
              mumq_app,
-             mumq_sup
+             mumq_conn,
+             mumq_sup,
+             mumq_tcpd
             ]},
   {registered, []},
   {applications, [

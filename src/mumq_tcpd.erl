@@ -10,7 +10,7 @@
 
 start_link() ->
     % TODO: Add tcp options nodelay and keepalive
-    gen_tcpd:start_link({local, ?MODULE}, ?MODULE, none, tcp, 61613, []).
+    gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, 61613, []).
 
 init(_Args) ->
     {ok, none}.
