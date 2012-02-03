@@ -9,9 +9,10 @@
          terminate/2]).
 
 start_link() ->
-    % TODO: Add tcp options nodelay and keepalive
     gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, 61613,
-                        [{socket_options, [{reuseaddr, true}]}]).
+                        [{socket_options, [{reuseaddr, true},
+                                           {nodelay, true},
+                                           {keepalive, true}]}]).
 
 init(_Args) ->
     {ok, none}.
