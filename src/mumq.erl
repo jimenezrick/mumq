@@ -5,6 +5,7 @@
 
 start() ->
     ssl:start(),
+    application:start(gen_tcpd),
     application:start(?MODULE).
 
 stop() ->
