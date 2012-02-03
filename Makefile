@@ -6,7 +6,7 @@ else
 REBAR_GET ?= curl -s -f $(REBAR_URL) >rebar
 endif
 
-.PHONY: all clean clean-all
+.PHONY: all deps release clean clean-all
 
 all: rebar deps
 	./rebar compile
@@ -15,14 +15,14 @@ rebar:
 	$(REBAR_GET)
 	chmod +x rebar
 
-deps:
+deps: rebar
 	./rebar get-deps
 
-rel: all
+release: rebar
 	./rebar generate
 
-clean:
+clean: rebar
 	./rebar clean
 
 clean-all:
-	rm -rf rebar ebin deps
+	rm -rf rebar ebin deps rel/mumq
