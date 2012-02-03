@@ -25,4 +25,4 @@ clean:
 	./rebar clean
 
 clean-all:
-	rm -rf rebar ebin deps rel
+	rm -rf rebar ebin deps
