@@ -2,7 +2,8 @@
 
 -export([handle_connection/2]).
 
-handle_connection(Socket, _State) ->
-    io:format("self = ~p~n", [self()]),
-    io:format("$ancestors = ~p~n", [get('$ancestors')]),
-    gen_tcpd:send(Socket, "HELO\n").
+handle_connection(Socket, State) ->
+    gen_tcpd:send(Socket, "HELO\n"),
+    Line = gen_tcpd:recv(Socket, 0),
+    io:format("Line = ~s", [Line]),
+    handle_connection(Socket, State).

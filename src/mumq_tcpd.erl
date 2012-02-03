@@ -10,7 +10,9 @@
 
 start_link() ->
     gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, 61613,
-                        [{acceptors, 10}, {socket_options, [{reuseaddr, true},
+                        [{acceptors, 10}, {socket_options, [{active, false},
+                                                            {packet, line},
+                                                            {reuseaddr, true},
                                                             {nodelay, true},
                                                             {keepalive, true}]}]).
 
