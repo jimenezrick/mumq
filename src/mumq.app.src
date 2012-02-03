@@ -9,7 +9,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  sasl
                  ]},
   {mod, {mumq_app, []}},
   {env, []}
