@@ -18,7 +18,7 @@ rebar:
 deps: rebar
 	./rebar get-deps
 
-release: rebar
+release: rebar all
 	./rebar generate
 
 clean: rebar
