@@ -2,6 +2,10 @@
  [
   {description, "Message broker"},
   {vsn, "0.1"},
+  {modules, [
+             mumq_app,
+             mumq_sup
+            ]},
   {registered, []},
   {applications, [
                   kernel,

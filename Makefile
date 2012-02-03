@@ -20,7 +20,7 @@ deps:
 
 rel: all
 	mkdir -p rel
-	cd rel; ../rebar create-node nodeid=foo
+	cd rel; ../rebar create-node nodeid=mumq_node
 	./rebar generate
 
 clean:

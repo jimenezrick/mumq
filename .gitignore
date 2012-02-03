@@ -2,4 +2,3 @@
 rebar
 ebin/
 deps/
-rel/
