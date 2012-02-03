@@ -4,5 +4,6 @@
 
 handle_connection(Socket, _State) ->
     gen_tcpd:send(Socket, "HELO\n"),
+    io:format("self = ~p~n", [self()]),
     io:format("$ancestors = ~p~n", [get('$ancestors')]),
     timer:sleep(timer:seconds(3)).
