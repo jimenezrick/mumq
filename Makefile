@@ -18,8 +18,13 @@ rebar:
 deps:
 	./rebar get-deps
 
+rel: all
+	mkdir -p rel
+	cd rel; ../rebar create-node nodeid=foo
+	./rebar generate
+
 clean:
 	./rebar clean
 
 clean-all:
-	rm -rf ebin deps rebar
+	rm -rf rebar ebin deps rel
