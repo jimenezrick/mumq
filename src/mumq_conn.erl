@@ -4,6 +4,6 @@
 
 handle_connection(Socket, State) ->
     gen_tcpd:send(Socket, "HELO\n"),
-    Line = gen_tcpd:recv(Socket, 0),
+    {ok, Line} = gen_tcpd:recv(Socket, 0),
     io:format("Line = ~s", [Line]),
     handle_connection(Socket, State).
