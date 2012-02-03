@@ -10,7 +10,8 @@
   {applications, [
                   kernel,
                   stdlib,
-                  sasl
+                  sasl,
+                  gen_tcpd
                  ]},
   {mod, {mumq_app, []}},
   {env, []}
