@@ -8,13 +8,13 @@
          handle_info/2,
          terminate/2]).
 
+-define(TCP_PORT, 61613).
+-define(TCP_OPTS, [{active, false}, {packet, line}, {reuseaddr, true},
+                   {nodelay, true}, {keepalive, true}]).
+
 start_link() ->
-    gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, 61613,
-                        [{acceptors, 10}, {socket_options, [{active, false},
-                                                            {packet, line},
-                                                            {reuseaddr, true},
-                                                            {nodelay, true},
-                                                            {keepalive, true}]}]).
+    gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, ?TCP_PORT,
+                        [{acceptors, 10}, {socket_options, ?TCP_OPTS}]).
 
 init(_Args) ->
     {ok, none}.
