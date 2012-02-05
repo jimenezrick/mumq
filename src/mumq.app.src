@@ -6,6 +6,7 @@
              mumq,
              mumq_app,
              mumq_conn,
+             mumq_subs,
              mumq_sup,
              mumq_tcpd
             ]},
