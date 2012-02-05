@@ -6,6 +6,7 @@
              mumq,
              mumq_app,
              mumq_conn,
+             mumq_subs,
              mumq_sup,
              mumq_tcpd
             ]},
@@ -14,6 +15,7 @@
                   kernel,
                   stdlib,
                   sasl,
+                  lager,
                   gen_tcpd
                  ]},
   {mod, {mumq_app, []}},
