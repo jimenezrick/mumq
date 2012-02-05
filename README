@@ -1,4 +1,29 @@
- μMQ
-=====
+  μMQ
+=======
 
-Very simple, small and fast message broker written in Erlang.
+Very simple, small and fast STOMP message broker written in Erlang.
+
+
+ Install
+---------
+
+To compile μMQ simply run:
+
+	make
+
+To start an instance of the server for testing in the TCP port 61613,
+just run:
+
+	./start.sh
+
+In order to create a target system for painless deployment, run:
+
+	make release
+
+This command will create the target system under rel/mumq/, copy it to
+your desired destination and use the next helper script to control it:
+
+	./rel/mumq/bin/mumq {start|stop|restart|console|...}
+
+NOTE: the release handling seems to be broken in R15B, so better use any
+      R14 release.
