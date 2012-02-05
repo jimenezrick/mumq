@@ -6,7 +6,6 @@
 
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
 %%% TODO: Implementar el leer tantos bytes cuando tengamos un Content-Length
-%%% TODO: Mover el codigo de parseo a otro modulo para luego hacer una parte cliente
 
 handle_connection(Socket, none) ->
     handle_connection(Socket, #state{sock = Socket});

@@ -13,7 +13,7 @@ terminate() ->
     ets:delete(?MODULE).
 
 add_subscriber(Channel, Pid) ->
-    % TODO: Use ets:insert(Tab, [Obj]), is atomic
+    % TODO: Use ets:insert(Tab, [Obj]), is atomic and isolated
     ets:insert(?MODULE, {Channel, Pid}).
 
 del_subscriber(Channel, Pid) ->
