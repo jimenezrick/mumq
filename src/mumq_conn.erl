@@ -67,7 +67,7 @@ read_body(State, Size) ->
 
 eat_empty_lines(State) ->
     case peek_byte(State) of
-        $\n ->
+        <<$\n>> ->
             eat_empty_lines(eat_byte(State));
         _ ->
             State
@@ -98,7 +98,7 @@ read_chunk(State, Sep, Parts) ->
 read_size_chunk(State, Size, Sep) ->
     {Parts, State2} = read_size_chunk(State, Size, Sep, []),
     case peek_byte(State2) of
-        $\0 ->
+        Sep ->
             {lists:reverse(Parts), eat_byte(State2)};
         _ ->
             % TODO
@@ -127,7 +127,8 @@ peek_byte(State = #state{buf = []}) ->
     State2 = read_socket(State),
     peek_byte(State2);
 peek_byte(State) ->
-    binary:first(hd(State#state.buf)).
+    Byte = binary:first(hd(State#state.buf)),
+    <<Byte>>.
 
 eat_byte(State = #state{buf = []}) ->
     State2 = read_socket(State),
