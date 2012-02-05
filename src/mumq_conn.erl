@@ -9,7 +9,7 @@
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
 
 handle_connection(Socket, none) ->
-    {ok, [{recbuf, RecvLen}]} = inet:getopts(Socket, [recbuf]),
+    {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
     handle_connection(Socket, #state{sock = Socket, recv_len = RecvLen});
 handle_connection(Socket, State) ->
     gen_tcpd:send(Socket, "HELO\n"),
