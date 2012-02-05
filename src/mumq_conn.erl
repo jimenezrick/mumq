@@ -4,28 +4,28 @@
 
 -record(state, {sock, buf = []}).
 
-%%% TODO: Mirar cuandos bytes leemos de media en cada recepcion
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
+%%% TODO: Implementar el leer tantos bytes cuando tengamos un Content-Length
+%%% TODO: Mover el codigo de parseo a otro modulo para luego hacer una parte cliente
 
+handle_connection(Socket, none) ->
+    handle_connection(Socket, #state{sock = Socket});
 handle_connection(Socket, State) ->
     gen_tcpd:send(Socket, "HELO\n"),
-    Frame = read_frame(#state{sock = Socket}),
-    print_frame(Frame),
-    handle_connection(Socket, State).
+    {Frame, State2} = read_frame(State),
+    log_frame(Frame),
+    handle_connection(Socket, State2).
 
-print_frame({frame, Cmd, Headers, Body}) ->
-    % TODO: Usar lager!
-    io:format("--------------------------------------------------~n"),
-    io:format("Cmd = ~s~n", [Cmd]),
-    io:format("Headers = ~p~n", [Headers]),
-    io:format("Body = ~p~n", [Body]),
-    io:format("--------------------------------------------------~n").
+log_frame({frame, Cmd, Headers, Body}) ->
+    lager:debug("Frame:~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
+                [Cmd, Headers, Body]).
 
 read_frame(State) ->
-    {Cmd, State2} = read_line(State),
-    {Headers, State3} = read_headers(State2),
-    {Body, State4} = read_body(State3),
-    {{frame, Cmd, Headers, Body}, consume_empty_lines(State4)}.
+    State2 = consume_empty_lines(State),
+    {Cmd, State3} = read_line(State2),
+    {Headers, State4} = read_headers(State3),
+    {Body, State5} = read_body(State4),
+    {{frame, Cmd, Headers, Body}, State5}.
 
 read_headers(State) ->
     read_headers(State, []).
@@ -35,17 +35,21 @@ read_headers(State, Headers) ->
         {<<>>, State2} ->
             {lists:reverse(Headers), State2};
         {Line, State2} ->
-            [Key, Val] = binary:split(Line, <<":">>),
+            [Key, Val] = lists:map(fun strip_spaces/1, binary:split(Line, <<":">>)),
             read_headers(State2, [{Key, Val} | Headers])
     end.
 
+strip_spaces(Bin) ->
+    binary:replace(Bin, <<$ >>, <<>>, [global]).
+
 read_line(State) ->
     Concat = fun(B1, B2) -> <<B2/binary, B1/binary>> end,
-    {Chunk, State2} = read_chunk(State, <<$\n>>, []),
+    {Chunk, State2} = read_chunk(State, <<$\n>>),
     {lists:foldl(Concat, <<>>, Chunk), State2}.
 
 read_body(State) ->
-    read_chunk(State, <<$\0>>, []).
+    %read_chunk(State, <<$\0>>). % FIXME FIXME FIXME
+    read_chunk(State, <<"x">>).
 
 consume_empty_lines(State) ->
     case read_line(State) of
@@ -56,21 +60,32 @@ consume_empty_lines(State) ->
             State2#state{buf = [<<Line/binary, "\n">> | Buf]}
     end.
 
+% TODO TODO TODO
+%read_chunk(State, Size) ->
+%read_chunk(State, Size) ->
+%read_chunk(State, Size) ->
+% TODO TODO TODO
+
+read_chunk(State, Sep) ->
+    {Parts, State2} = read_chunk(State, Sep, []),
+    {lists:reverse(Parts), State2}.
+
 read_chunk(State = #state{buf = []}, Sep, Parts) ->
     % TODO: handle error, throw
     {ok, Data} = gen_tcpd:recv(State#state.sock, 0),
+    lager:debug("Read ~B bytes from socket", [size(Data)]),
     read_chunk(State#state{buf = [Data]}, Sep, Parts);
 read_chunk(State, Sep, Parts) ->
     [Data | Rest] = State#state.buf,
     case binary:split(Data, Sep) of
-        [<<>>] ->
-            {<<>>, State#state{buf = Rest}};
         [Part] ->
             read_chunk(State#state{buf = Rest}, Sep, [Part | Parts]);
+        [<<>>, <<>>] ->
+            {[<<>> | Parts], State#state{buf = Rest}};
         [<<>>, MoreData] ->
-            {<<>>, State#state{buf = [MoreData | Rest]}};
+            {[<<>> | Parts], State#state{buf = [MoreData | Rest]}};
         [Part, <<>>] ->
-            {lists:reverse([Part | Parts]), State#state{buf = Rest}};
+            {[Part | Parts], State#state{buf = Rest}};
         [Part, MoreData] ->
-            {lists:reverse([Part | Parts]), State#state{buf = [MoreData | Rest]}}
+            {[Part | Parts], State#state{buf = [MoreData | Rest]}}
     end.
