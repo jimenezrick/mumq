@@ -25,4 +25,4 @@ clean: rebar
 	./rebar clean
 
 clean-all:
-	rm -rf rebar ebin deps rel/mumq
+	rm -rf rebar ebin deps rel/mumq log doc
