@@ -4,7 +4,10 @@
          stop/0]).
 
 start() ->
-    ssl:start(),
+    application:start(crypto),
+    application:start(public_key),
+    application:start(ssl),
+    application:start(lager),
     application:start(gen_tcpd),
     application:start(?MODULE).
 

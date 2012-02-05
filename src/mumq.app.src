@@ -15,6 +15,7 @@
                   kernel,
                   stdlib,
                   sasl,
+                  lager,
                   gen_tcpd
                  ]},
   {mod, {mumq_app, []}},
