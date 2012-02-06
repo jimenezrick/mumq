@@ -170,14 +170,16 @@ read_size_chunk(State, Size, Sep) ->
 read_size_chunk(State, 0, _, Parts) ->
     {Parts, State};
 read_size_chunk(State, Size, Sep, Parts) ->
-    [Data | Rest] = read_buffer(State, State#state.recv_len),
+    [Data | Rest] = read_buffer(State, min(Size, State#state.recv_len)),
+    FSize = State#state.frame_size,
     case size(Data) of
         N when N =< Size ->
-            State2 = State#state{buf = Rest},
+            State2 = State#state{buf = Rest, frame_size = N + FSize},
             read_size_chunk(State2, Size - N, Sep, [Data | Parts]);
-        _ ->
+        N ->
             {Part, MoreData} = split_binary(Data, Size),
-            {[Part | Parts], State#state{buf = [MoreData | Rest]}}
+            {[Part | Parts], State#state{buf = [MoreData | Rest],
+                                         frame_size = N + FSize}}
     end.
 
 peek_byte(State) ->
