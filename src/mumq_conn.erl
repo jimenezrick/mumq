@@ -2,14 +2,19 @@
 
 -export([handle_connection/2]).
 
--record(state, {sock, peer, recv_len, buf = []}).
+-record(state, {sock,
+                peer,
+                recv_len,
+                max_frame_size,
+                frame_size = 0,
+                buf = []}).
+
+-define(MAX_FRAME_SIZE, 4 * 1024 * 1024).
 
 %%%-----------------------------------------------------------------------------
 %%% TODO: Sacar a otro modulo para hacer la parte cliente.
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames
 %%%       al destinatario?
-%%% TODO: Add a max size for the headers and the body: could be max size por
-%%%       content-length and max size read from read_chunk()
 %%%-----------------------------------------------------------------------------
 
 handle_connection(Socket, none) ->
@@ -17,13 +22,18 @@ handle_connection(Socket, none) ->
     Peer = format_peer(Peer0),
     lager:info("New connection from ~s", [Peer]),
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
-    handle_connection(Socket, #state{sock = Socket, peer = Peer, recv_len = RecvLen});
+    Max = max_frame_size(),
+    handle_connection(Socket, #state{sock = Socket, peer = Peer,
+                                     recv_len = RecvLen, max_frame_size = Max});
 handle_connection(Socket, State) ->
     try
         gen_tcpd:send(Socket, "HELO\n"),
         case read_frame(State) of
             {error, bad_frame} ->
                 lager:info("Invalid frame received from ~s", [State#state.peer]),
+                gen_tcpd:close(Socket);
+            {error, bad_frame_size} ->
+                lager:info("Frame too big received from ~s", [State#state.peer]),
                 gen_tcpd:close(Socket);
             {Frame, State2} ->
                 log_frame(Frame, State2#state.peer),
@@ -39,6 +49,14 @@ handle_connection(Socket, State) ->
 format_peer({{O1, O2, O3, O4}, P}) ->
     io_lib:format("~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]).
 
+max_frame_size() ->
+    case application:get_env(max_frame_size) of
+        undefined ->
+            ?MAX_FRAME_SIZE;
+        {ok, Max} ->
+            Max
+    end.
+
 log_frame({frame, Cmd, Headers, Body}, Peer) ->
     lager:debug("Frame received from ~s~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
                 [Peer, Cmd, Headers, Body]).
@@ -48,7 +66,9 @@ read_frame(State) ->
         read_frame2(State)
     catch
         throw:bad_frame ->
-            {error, bad_frame}
+            {error, bad_frame};
+        throw:bad_frame_size ->
+            {error, bad_frame_size}
     end.
 
 read_frame2(State) ->
@@ -62,7 +82,7 @@ read_frame2(State) ->
 read_headers(State) ->
     try
         {Headers, State2} = read_headers(State, []),
-        {parse_headers(Headers), State2}
+        {parse_headers(State2, Headers), State2}
     catch
         error:_ ->
             throw(bad_frame)
@@ -82,13 +102,18 @@ read_headers(State, Headers) ->
 strip_spaces(Bin) ->
     binary:replace(Bin, <<$ >>, <<>>, [global]).
 
-parse_headers(Headers) ->
-    lists:map(fun parse_header/1, Headers).
+parse_headers(State, Headers) ->
+    [parse_header(State, H) || H <- Headers].
 
-parse_header({"content-length", Len}) ->
-    % TODO: Check here the max size of content-length
-    {"content-length", list_to_integer(Len)};
-parse_header(Header) ->
+parse_header(State, {"content-length", StrLen}) ->
+    case list_to_integer(StrLen) of
+        Len when Len + State#state.frame_size > State#state.max_frame_size ->
+            throw(bad_frame_size);
+        Len ->
+            true
+    end,
+    {"content-length", Len};
+parse_header(_, Header) ->
     Header.
 
 read_line(State) ->
@@ -115,17 +140,22 @@ read_chunk(State, Sep) ->
 
 read_chunk(State, Sep, Parts) ->
     [Data | Rest] = read_buffer(State),
+    Size = State#state.frame_size,
     case binary:split(Data, Sep) of
+        L when size(hd(L)) + Size > State#state.max_frame_size ->
+            throw(bad_frame_size);
         [Part] ->
-            read_chunk(State#state{buf = Rest}, Sep, [Part | Parts]);
+            read_chunk(State#state{buf = Rest, frame_size = Size + size(Part)},
+                       Sep, [Part | Parts]);
         [<<>>, <<>>] ->
             {[<<>> | Parts], State#state{buf = Rest}};
         [<<>>, MoreData] ->
             {[<<>> | Parts], State#state{buf = [MoreData | Rest]}};
         [Part, <<>>] ->
-            {[Part | Parts], State#state{buf = Rest}};
+            {[Part | Parts], State#state{buf = Rest, frame_size = Size + size(Part)}};
         [Part, MoreData] ->
-            {[Part | Parts], State#state{buf = [MoreData | Rest]}}
+            {[Part | Parts], State#state{buf = [MoreData | Rest],
+                                         frame_size = Size + size(Part)}}
     end.
 
 read_size_chunk(State, Size, Sep) ->

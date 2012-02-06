@@ -9,8 +9,12 @@
          terminate/2]).
 
 -define(TCP_PORT, 61613).
--define(TCP_OPTS, [binary, {active, false}, {packet, raw},
-                   {reuseaddr, true}, {nodelay, true}, {keepalive, true}]).
+-define(TCP_OPTS, [binary,
+                   {active, false},
+                   {packet, raw},
+                   {reuseaddr, true},
+                   {nodelay, true},
+                   {keepalive, true}]).
 
 start_link() ->
     gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, ?TCP_PORT,
