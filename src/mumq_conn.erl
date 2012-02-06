@@ -7,23 +7,45 @@
 %%% TODO: Sacar a otro modulo para hacer la parte cliente. Se podria implementar envio en streaming
 %%%       tanto en el cliente como el servidor.
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
-%%%
-%%% TODO: Handle exceptions: tcp_closed, tcp_error and stomp_error
 
 handle_connection(Socket, none) ->
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
     handle_connection(Socket, #state{sock = Socket, recv_len = RecvLen});
 handle_connection(Socket, State) ->
-    gen_tcpd:send(Socket, "HELO\n"),
-    {Frame, State2} = read_frame(State),
-    log_frame(Frame),
-    handle_connection(Socket, State2).
+    {ok, {[O1, O2, O3, O4], P}} = gen_tcpd:peername(Socket),
+    try
+        gen_tcpd:send(Socket, "HELO\n"),
+        case read_frame(State) of
+            {error, _} ->
+                lager:info("Invalid frame received from ~B.~B.~B.~B:~B",
+                           [O1, O2, O3, O4, P]),
+                gen_tcpd:close(Socket);
+            {Frame, State2} ->
+                log_frame(Frame),
+                handle_connection(Socket, State2)
+        end
+    catch
+        throw:tcp_closed ->
+            lager:info("Connection closed by ~B.~B.~B.~B:~B",
+                       [O1, O2, O3, O4, P]);
+        throw:tcp_error ->
+            lager:info("Connection error with ~B.~B.~B.~B:~B",
+                       [O1, O2, O3, O4, P])
+    end.
 
 log_frame({frame, Cmd, Headers, Body}) ->
     lager:debug("Frame:~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
                 [Cmd, Headers, Body]).
 
 read_frame(State) ->
+    try
+        read_frame2(State)
+    catch
+        throw:bad_frame ->
+            {error, bad_frame}
+    end.
+
+read_frame2(State) ->
     State2 = eat_empty_lines(State),
     {Cmd, State3} = read_line(State2),
     {Headers, State4} = read_headers(State3),
@@ -100,7 +122,7 @@ read_size_chunk(State, Size, Sep) ->
         {Sep, State3} ->
             {lists:reverse(Parts), eat_byte(State3)};
         _ ->
-            throw(stomp_error)
+            throw(bad_frame)
     end.
 
 read_size_chunk(State, 0, _, Parts) ->
@@ -142,7 +164,7 @@ read_buffer(State = #state{buf = []}, RecvLen) ->
             Data = none,
             throw(tcp_error)
     end,
-    lager:debug("Read ~B bytes from socket", [size(Data)]),
+    lager:debug("Read ~B bytes from socket", [size(hd(Data))]),
     Data;
 read_buffer(State, _) ->
     State#state.buf.
