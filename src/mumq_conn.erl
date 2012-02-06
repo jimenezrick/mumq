@@ -8,6 +8,8 @@
 %%% TODO: Sacar a otro modulo para hacer la parte cliente.
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames
 %%%       al destinatario?
+%%% TODO: Add a max size for the headers and the body: could be max size por
+%%%       content-length and max size read from read_chunk()
 %%%-----------------------------------------------------------------------------
 
 handle_connection(Socket, none) ->
@@ -20,7 +22,7 @@ handle_connection(Socket, State) ->
     try
         gen_tcpd:send(Socket, "HELO\n"),
         case read_frame(State) of
-            {error, _} ->
+            {error, bad_frame} ->
                 lager:info("Invalid frame received from ~s", [State#state.peer]),
                 gen_tcpd:close(Socket);
             {Frame, State2} ->
@@ -58,8 +60,13 @@ read_frame2(State) ->
     {{frame, Cmd, Headers, Body}, State5}.
 
 read_headers(State) ->
-    {Headers, State2} = read_headers(State, []),
-    {parse_headers(Headers), State2}.
+    try
+        {Headers, State2} = read_headers(State, []),
+        {parse_headers(Headers), State2}
+    catch
+        error:_ ->
+            throw(bad_frame)
+    end.
 
 read_headers(State, Headers) ->
     case read_line(State) of
@@ -79,6 +86,7 @@ parse_headers(Headers) ->
     lists:map(fun parse_header/1, Headers).
 
 parse_header({"content-length", Len}) ->
+    % TODO: Check here the max size of content-length
     {"content-length", list_to_integer(Len)};
 parse_header(Header) ->
     Header.
