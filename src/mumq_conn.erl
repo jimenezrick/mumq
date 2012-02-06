@@ -4,9 +4,11 @@
 
 -record(state, {sock, peer, recv_len, buf = []}).
 
-%%% TODO: Sacar a otro modulo para hacer la parte cliente. Se podria implementar envio en streaming
-%%%       tanto en el cliente como el servidor.
-%%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
+%%%-----------------------------------------------------------------------------
+%%% TODO: Sacar a otro modulo para hacer la parte cliente.
+%%% TODO: Implementar las transacciones como un envio de un grupo de frames
+%%%       al destinatario?
+%%%-----------------------------------------------------------------------------
 
 handle_connection(Socket, none) ->
     {ok, Peer = {{O1, O2, O3, O4}, P}} = gen_tcpd:peername(Socket),
@@ -23,7 +25,7 @@ handle_connection(Socket, State) ->
                            [O1, O2, O3, O4, P]),
                 gen_tcpd:close(Socket);
             {Frame, State2} ->
-                log_frame(Frame),
+                log_frame(Frame, State2#state.peer),
                 handle_connection(Socket, State2)
         end
     catch
@@ -35,9 +37,11 @@ handle_connection(Socket, State) ->
                        [O1, O2, O3, O4, P])
     end.
 
-log_frame({frame, Cmd, Headers, Body}) ->
-    lager:debug("Frame:~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
-                [Cmd, Headers, Body]).
+log_frame({frame, Cmd, Headers, Body}, Peer) ->
+    {{O1, O2, O3, O4}, P} = Peer,
+    lager:debug("Frame received from ~B.~B.~B.~B:~B:~n"
+                "\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
+                [O1, O2, O3, O4, P, Cmd, Headers, Body]).
 
 read_frame(State) ->
     try
