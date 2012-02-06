@@ -2,17 +2,19 @@
 
 -export([handle_connection/2]).
 
--record(state, {sock, recv_len, buf = []}).
+-record(state, {sock, peer, recv_len, buf = []}).
 
 %%% TODO: Sacar a otro modulo para hacer la parte cliente. Se podria implementar envio en streaming
 %%%       tanto en el cliente como el servidor.
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
 
 handle_connection(Socket, none) ->
+    {ok, Peer = {{O1, O2, O3, O4}, P}} = gen_tcpd:peername(Socket),
+    lager:info("Client connection from ~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]),
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
-    handle_connection(Socket, #state{sock = Socket, recv_len = RecvLen});
+    handle_connection(Socket, #state{sock = Socket, peer = Peer, recv_len = RecvLen});
 handle_connection(Socket, State) ->
-    {ok, {[O1, O2, O3, O4], P}} = gen_tcpd:peername(Socket),
+    {{O1, O2, O3, O4}, P} = State#state.peer,
     try
         gen_tcpd:send(Socket, "HELO\n"),
         case read_frame(State) of

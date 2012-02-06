@@ -26,4 +26,4 @@ your desired destination and use the next helper script to control it:
 	./rel/mumq/bin/mumq {start|stop|restart|console|...}
 
 NOTE: the release handling seems to be broken in R15B, so better use any
-      R14 release.
+      R14 release for creating the target system.
