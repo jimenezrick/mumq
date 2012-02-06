@@ -7,6 +7,8 @@
 %%% TODO: Sacar a otro modulo para hacer la parte cliente. Se podria implementar envio en streaming
 %%%       tanto en el cliente como el servidor.
 %%% TODO: Implementar las transacciones como un envio de un grupo de frames al destinatario?
+%%%
+%%% TODO: Handle exceptions: tcp_closed, tcp_error and stomp_error
 
 handle_connection(Socket, none) ->
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
@@ -61,27 +63,24 @@ read_line(State) ->
     {lists:foldl(Concat, <<>>, Chunk), State2}.
 
 read_body(State, undefined) ->
-    read_chunk(State, <<$\0>>);
+    read_chunk(State, <<$x>>); % FIXME $\0
 read_body(State, Size) ->
-    read_size_chunk(State, Size, <<$\0>>).
+    read_size_chunk(State, Size, <<$x>>). % FIXME $\0
 
 eat_empty_lines(State) ->
     case peek_byte(State) of
-        <<$\n>> ->
-            eat_empty_lines(eat_byte(State));
-        _ ->
-            State
+        {<<$\n>>, State2} ->
+            eat_empty_lines(eat_byte(State2));
+        {_, State2} ->
+            State2
     end.
 
 read_chunk(State, Sep) ->
     {Parts, State2} = read_chunk(State, Sep, []),
     {lists:reverse(Parts), State2}.
 
-read_chunk(State = #state{buf = []}, Sep, Parts) ->
-    State2 = read_socket(State),
-    read_chunk(State2, Sep, Parts);
 read_chunk(State, Sep, Parts) ->
-    [Data | Rest] = State#state.buf,
+    [Data | Rest] = read_buffer(State),
     case binary:split(Data, Sep) of
         [Part] ->
             read_chunk(State#state{buf = Rest}, Sep, [Part | Parts]);
@@ -98,22 +97,16 @@ read_chunk(State, Sep, Parts) ->
 read_size_chunk(State, Size, Sep) ->
     {Parts, State2} = read_size_chunk(State, Size, Sep, []),
     case peek_byte(State2) of
-        Sep ->
-            {lists:reverse(Parts), eat_byte(State2)};
+        {Sep, State3} ->
+            {lists:reverse(Parts), eat_byte(State3)};
         _ ->
-            % TODO
-            % TODO: Throw error
-            % TODO
-            error
+            throw(stomp_error)
     end.
 
 read_size_chunk(State, 0, _, Parts) ->
     {Parts, State};
-read_size_chunk(State = #state{buf = []}, Size, Sep, Parts) ->
-    State2 = read_socket(State, State#state.recv_len),
-    read_size_chunk(State2, Size, Sep, Parts);
 read_size_chunk(State, Size, Sep, Parts) ->
-    [Data | Rest] = State#state.buf,
+    [Data | Rest] = read_buffer(State, State#state.recv_len),
     case size(Data) of
         N when N =< Size ->
             State2 = State#state{buf = Rest},
@@ -123,28 +116,33 @@ read_size_chunk(State, Size, Sep, Parts) ->
             {[Part | Parts], State#state{buf = [MoreData | Rest]}}
     end.
 
-peek_byte(State = #state{buf = []}) ->
-    State2 = read_socket(State),
-    peek_byte(State2);
 peek_byte(State) ->
-    Byte = binary:first(hd(State#state.buf)),
-    <<Byte>>.
+    State2 = State#state{buf = read_buffer(State)},
+    Byte = binary:first(hd(State2#state.buf)),
+    {<<Byte>>, State2}.
 
 eat_byte(State = #state{buf = []}) ->
-    State2 = read_socket(State),
-    eat_byte(State2);
+    eat_byte(State#state{buf = read_buffer(State)});
 eat_byte(State = #state{buf = [Data | Rest]}) when size(Data) == 1 ->
     State#state{buf = Rest};
 eat_byte(State = #state{buf = [Data | Rest]}) ->
     State#state{buf = [binary:part(Data, 1, size(Data) - 1) | Rest]}.
 
-read_socket(State) ->
-    read_socket(State, 0).
+read_buffer(State) ->
+    read_buffer(State, 0).
 
-read_socket(State, RecvLen) ->
-    % TODO
-    % TODO: Throw error
-    % TODO
-    {ok, Data} = gen_tcpd:recv(State#state.sock, RecvLen),
+read_buffer(State = #state{buf = []}, RecvLen) ->
+    case gen_tcpd:recv(State#state.sock, RecvLen) of
+        {ok, Packet} ->
+            Data = [Packet];
+        {error, closed} ->
+            Data = none,
+            throw(tcp_closed);
+        {error, _} ->
+            Data = none,
+            throw(tcp_error)
+    end,
     lager:debug("Read ~B bytes from socket", [size(Data)]),
-    State#state{buf = [Data | State#state.buf]}.
+    Data;
+read_buffer(State, _) ->
+    State#state.buf.
