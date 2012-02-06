@@ -1,0 +1,2 @@
+-define(TCP_PORT, 61613).
+-define(MAX_FRAME_SIZE, 4 * 1024 * 1024).

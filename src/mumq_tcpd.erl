@@ -8,7 +8,8 @@
          handle_info/2,
          terminate/2]).
 
--define(TCP_PORT, 61613).
+-include("mumq.hrl").
+
 -define(TCP_OPTS, [binary,
                    {active, false},
                    {packet, raw},
