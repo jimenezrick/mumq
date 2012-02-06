@@ -11,18 +11,17 @@
 %%%-----------------------------------------------------------------------------
 
 handle_connection(Socket, none) ->
-    {ok, Peer = {{O1, O2, O3, O4}, P}} = gen_tcpd:peername(Socket),
-    lager:info("Client connection from ~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]),
+    {ok, Peer0} = gen_tcpd:peername(Socket),
+    Peer = format_peer(Peer0),
+    lager:info("New connection from ~s", [Peer]),
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
     handle_connection(Socket, #state{sock = Socket, peer = Peer, recv_len = RecvLen});
 handle_connection(Socket, State) ->
-    {{O1, O2, O3, O4}, P} = State#state.peer,
     try
         gen_tcpd:send(Socket, "HELO\n"),
         case read_frame(State) of
             {error, _} ->
-                lager:info("Invalid frame received from ~B.~B.~B.~B:~B",
-                           [O1, O2, O3, O4, P]),
+                lager:info("Invalid frame received from ~s", [State#state.peer]),
                 gen_tcpd:close(Socket);
             {Frame, State2} ->
                 log_frame(Frame, State2#state.peer),
@@ -30,18 +29,17 @@ handle_connection(Socket, State) ->
         end
     catch
         throw:tcp_closed ->
-            lager:info("Connection closed by ~B.~B.~B.~B:~B",
-                       [O1, O2, O3, O4, P]);
+            lager:info("Connection closed by ~s", [State#state.peer]);
         throw:tcp_error ->
-            lager:info("Connection error with ~B.~B.~B.~B:~B",
-                       [O1, O2, O3, O4, P])
+            lager:info("Connection error with ~s", [State#state.peer])
     end.
 
+format_peer({{O1, O2, O3, O4}, P}) ->
+    io_lib:format("~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]).
+
 log_frame({frame, Cmd, Headers, Body}, Peer) ->
-    {{O1, O2, O3, O4}, P} = Peer,
-    lager:debug("Frame received from ~B.~B.~B.~B:~B:~n"
-                "\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
-                [O1, O2, O3, O4, P, Cmd, Headers, Body]).
+    lager:debug("Frame received from ~s~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
+                [Peer, Cmd, Headers, Body]).
 
 read_frame(State) ->
     try
@@ -170,7 +168,7 @@ read_buffer(State = #state{buf = []}, RecvLen) ->
             Data = none,
             throw(tcp_error)
     end,
-    lager:debug("Read ~B bytes from socket", [size(hd(Data))]),
+    lager:debug("~B bytes received from ~s", [size(hd(Data)), State#state.peer]),
     Data;
 read_buffer(State, _) ->
     State#state.buf.
