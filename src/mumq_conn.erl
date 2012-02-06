@@ -11,12 +11,6 @@
 
 -define(MAX_FRAME_SIZE, 4 * 1024 * 1024).
 
-%%%-----------------------------------------------------------------------------
-%%% TODO: Sacar a otro modulo para hacer la parte cliente.
-%%% TODO: Implementar las transacciones como un envio de un grupo de frames
-%%%       al destinatario?
-%%%-----------------------------------------------------------------------------
-
 handle_connection(Socket, none) ->
     {ok, Peer0} = gen_tcpd:peername(Socket),
     Peer = format_peer(Peer0),
@@ -122,9 +116,9 @@ read_line(State) ->
     {lists:foldl(Concat, <<>>, Chunk), State2}.
 
 read_body(State, undefined) ->
-    read_chunk(State, <<$x>>); % FIXME $\0
+    read_chunk(State, <<$\0>>);
 read_body(State, Size) ->
-    read_size_chunk(State, Size, <<$x>>). % FIXME $\0
+    read_size_chunk(State, Size, <<$\0>>).
 
 eat_empty_lines(State) ->
     case peek_byte(State) of
