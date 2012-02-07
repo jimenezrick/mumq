@@ -43,8 +43,8 @@ write_frame(Socket, Frame) ->
 prepare_headers(Headers) ->
     [prepare_header(H) || H <- Headers].
 
-prepare_header({"content-length", Len}) when is_list(Len) ->
-    prepare_header({"content-length", list_to_integer(Len)});
+prepare_header({<<"content-length">>, Len}) when is_integer(Len) ->
+    prepare_header({<<"content-length">>, integer_to_list(Len)});
 prepare_header({Key, Val}) ->
     [Key, $:, Val, $\n].
 
@@ -62,7 +62,7 @@ read_frame2(Conn) ->
     Conn2 = eat_empty_lines(Conn),
     {Cmd, Conn3} = read_line(Conn2),
     {Headers, Conn4} = read_headers(Conn3),
-    BodySize = proplists:get_value("content-length", Headers, undefined),
+    BodySize = proplists:get_value(<<"content-length">>, Headers, undefined),
     {Body, Conn5} = read_body(Conn4, BodySize),
     {ok, {frame, Cmd, Headers, Body}, Conn5}.
 
@@ -80,9 +80,7 @@ read_headers(Conn, Headers) ->
         {<<>>, Conn2} ->
             {lists:reverse(Headers), Conn2};
         {Line, Conn2} ->
-            [Key0, Val0] = lists:map(fun strip_spaces/1, binary:split(Line, <<":">>)),
-            Key = string:to_lower(binary_to_list(Key0)),
-            Val = binary_to_list(Val0),
+            [Key, Val] = lists:map(fun strip_spaces/1, binary:split(Line, <<":">>)),
             read_headers(Conn2, [{Key, Val} | Headers])
     end.
 
@@ -92,14 +90,14 @@ strip_spaces(Bin) ->
 parse_headers(Conn, Headers) ->
     [parse_header(Conn, H) || H <- Headers].
 
-parse_header(Conn, {"content-length", StrLen}) ->
-    case list_to_integer(StrLen) of
-        Len when Len + Conn#conn.frame_size > Conn#conn.max_frame_size ->
+parse_header(Conn, {<<"content-length">>, Len}) ->
+    case list_to_integer(binary_to_list(Len)) of
+        Len2 when Len2 + Conn#conn.frame_size > Conn#conn.max_frame_size ->
             throw(bad_frame_size);
-        Len ->
+        Len2 ->
             true
     end,
-    {"content-length", Len};
+    {<<"content-length">>, Len2};
 parse_header(_, Header) ->
     Header.
 

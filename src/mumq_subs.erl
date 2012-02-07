@@ -4,26 +4,32 @@
          terminate/0,
          add_subscriber/2,
          del_subscriber/2,
-         get_subscriber/1]).
+         get_subscribers/1]).
+
+-define(ETS_OPTS, [duplicate_bag,
+                   named_table,
+                   public,
+                   {read_concurrency, true}]).
 
 init() ->
-    ets:new(?MODULE, [named_table, bag, public, {read_concurrency, true}]).
+    ets:new(?MODULE, ?ETS_OPTS).
 
 terminate() ->
     ets:delete(?MODULE).
 
-add_subscriber(Channel, Pid) ->
-    % TODO: Use ets:insert(Tab, [Obj]), is atomic and isolated
-    ets:insert(?MODULE, {Channel, Pid}).
+add_subscriber(Queue, Pid) ->
+    ets:insert(?MODULE, {Queue, Pid}).
 
-del_subscriber(Channel, Pid) ->
-    ets:delete_object(?MODULE, {Channel, Pid}).
+del_subscriber(Queue, Pid) ->
+    ets:delete_object(?MODULE, {Queue, Pid}).
 
-get_subscriber(Channel) ->
+get_subscribers(Queue) ->
     try
-        Pids = ets:lookup_element(?MODULE, Channel, 2),
+        Pids = ets:lookup_element(?MODULE, Queue, 2),
+        % XXX
         io:format("Pids = ~p~n", [Pids])
+        % XXX
     catch
         error:badarg ->
-            ok
+            error % FIXME
     end.

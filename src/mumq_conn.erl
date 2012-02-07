@@ -2,6 +2,8 @@
 
 -export([handle_connection/2]).
 
+%%% TODO: Move this code to mumq_tcpd if it is a few LOCS
+
 handle_connection(Socket, none) ->
     Conn = mumq_stomp:create_conn(Socket),
     lager:info("New connection from ~s", [mumq_stomp:peername(Conn)]),
@@ -20,6 +22,7 @@ handle_connection(Socket, Conn) ->
                 gen_tcpd:close(Socket);
             {ok, Frame, Conn2} ->
                 mumq_stomp:log_frame(Frame, mumq_stomp:peername(Conn2)),
+                handle_frame(Socket, Frame),
                 handle_connection(Socket, Conn2)
         end
     catch
@@ -28,3 +31,6 @@ handle_connection(Socket, Conn) ->
         throw:tcp_error ->
             lager:info("Connection error with ~s", [mumq_stomp:peername(Conn)])
     end.
+
+handle_frame(_Socket, {frame, <<"SUBSCRIBE">>, _Headers, _Body}) ->
+    lager:debug(" --- SUBSCRIBE frame ---").
