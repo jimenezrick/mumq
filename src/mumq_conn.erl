@@ -32,5 +32,18 @@ handle_connection(Socket, Conn) ->
             lager:info("Connection error with ~s", [mumq_stomp:peername(Conn)])
     end.
 
+
+
+
+
+%%% TODO: Need a State to handle the session
+
+-record(state, {status = disconnected, session}).
+
+%handle_frame(_Socket, {frame, <<"CONNECT">>, _Headers, _Body}) ->
+
+
+
+
 handle_frame(_Socket, {frame, <<"SUBSCRIBE">>, _Headers, _Body}) ->
     lager:debug(" --- SUBSCRIBE frame ---").
