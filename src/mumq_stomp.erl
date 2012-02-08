@@ -6,6 +6,16 @@
          read_frame/1,
          log_frame/2]).
 
+-export([connect_frame/0,
+         connect_frame/2,
+         connected_frame/0,
+         disconnect_frame/0,
+         error_frame/0,
+         error_frame/1,
+         error_frame/2,
+         add_header/3,
+         add_content_length/1]).
+
 -include("mumq.hrl").
 
 -record(conn, {sock,
@@ -201,3 +211,44 @@ read_buffer(Conn, _) ->
 log_frame({frame, Cmd, Headers, Body}, Peer) ->
     lager:debug("Frame received from ~s~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
                 [Peer, Cmd, Headers, Body]).
+
+frame(Cmd) ->
+    frame(Cmd, [], <<>>).
+
+frame(Cmd, Headers) when is_tuple(hd(Headers)) ->
+    frame(Cmd, Headers, <<>>);
+frame(Cmd, Body) ->
+    frame(Cmd, [], Body).
+
+frame(Cmd, Headers, Body) ->
+    {frame, Cmd, Headers, Body}.
+
+add_header(Frame, Key, Val) ->
+    {frame, Cmd, Headers, Body} = Frame,
+    {frame, Cmd, [{Key, Val} | Headers], Body}.
+
+add_content_length(Frame) ->
+    {frame, _, _, Body} = Frame,
+    add_header(Frame, <<"content-length">>, iolist_size(Body)).
+
+connect_frame() ->
+    frame(<<"CONNECT">>).
+
+connect_frame(Login, Pass) ->
+    frame(<<"CONNECT">>, [{<<"login">>, Login}, {<<"passcode">>, Pass}]).
+
+connected_frame() ->
+    Session = io_lib:format("~B~B~B-~s", tuple_to_list(now()) ++ [node()]),
+    frame(<<"CONNECTED">>, [{<<"session">>, Session}]).
+
+disconnect_frame() ->
+    frame(<<"DISCONNECT">>).
+
+error_frame() ->
+    frame(<<"ERROR">>).
+
+error_frame(Msg) ->
+    frame(<<"ERROR">>, [{<<"message">>, Msg}]).
+
+error_frame(Msg, Body) ->
+    frame(<<"ERROR">>, [{<<"message">>, Msg}], Body).

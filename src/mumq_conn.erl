@@ -2,8 +2,6 @@
 
 -export([handle_connection/2]).
 
-%%% TODO: Move this code to mumq_tcpd if it is a few LOCS
-
 handle_connection(Socket, none) ->
     Conn = mumq_stomp:create_conn(Socket),
     lager:info("New connection from ~s", [mumq_stomp:peername(Conn)]),
