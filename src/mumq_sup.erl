@@ -7,12 +7,14 @@
 
 -include("mumq.hrl").
 
--define(CHILD(Id, Type, Args), {Id, {Id, start_link, Args},
-                                permanent, 5000, Type, [Id]}).
+-define(CHILD(Id, Mod, Type, Args), {Id, {Mod, start_link, Args},
+                                     permanent, 5000, Type, [Mod]}).
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init(_Args) ->
-    {ok, {{one_for_one, 5, 10}, [?CHILD(mumq_tcpd, worker, [tcp, ?TCP_PORT]),
-                                 ?CHILD(mumq_tcpd, worker, [ssl, ?TCP_PORT + 1])]}}.
+    {ok, {{one_for_one, 5, 10}, [?CHILD(mumq_tcpd, mumq_tcpd, worker,
+                                        [mumq_tcpd, tcp, ?TCP_PORT]),
+                                 ?CHILD(mumq_ssld, mumq_tcpd, worker,
+                                        [mumq_ssld, ssl, ?TCP_PORT + 1])]}}.
