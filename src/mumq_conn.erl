@@ -9,12 +9,14 @@ handle_connection(State, Conn) ->
     try
         case mumq_stomp:read_frame(Conn) of
             {error, bad_frame} ->
-                % TODO: Answer with error
+                mumq_stomp:write_frame(mumq_stomp:socket(Conn),
+                                       mumq_stomp:error_frame("invalid frame")),
                 lager:info("Invalid frame received from ~s",
                            [mumq_stomp:peername(Conn)]),
                 gen_tcpd:close(mumq_stomp:socket(Conn));
             {error, bad_frame_size} ->
-                % TODO: Answer with error
+                mumq_stomp:write_frame(mumq_stomp:socket(Conn),
+                                       mumq_stomp:error_frame("frame too big")),
                 lager:info("Frame too big received from ~s",
                            [mumq_stomp:peername(Conn)]),
                 gen_tcpd:close(mumq_stomp:socket(Conn));
