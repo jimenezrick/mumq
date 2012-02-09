@@ -57,21 +57,21 @@ handle_frame(disconnected, Conn, Frame = {frame, <<"CONNECT">>, _, _}) ->
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
     case authenticate_client(Frame) of
         ok ->
-            lager:info("Client ~s connected", [mumq_stomp:peername(Conn)]),
             mumq_stomp:write_frame(mumq_stomp:socket(Conn),
                                    mumq_stomp:connected_frame()),
+            lager:info("Client ~s connected", [mumq_stomp:peername(Conn)]),
             handle_connection(connected, Conn);
         {error, incorrect_login} ->
-            lager:info("Client ~s failed authentication", [mumq_stomp:peername(Conn)]),
             mumq_stomp:write_frame(mumq_stomp:socket(Conn),
                                    mumq_stomp:error_frame("incorrect login")),
+            lager:info("Client ~s failed authentication", [mumq_stomp:peername(Conn)]),
             gen_tcpd:close(mumq_stomp:socket(Conn))
     end;
 handle_frame(connected, Conn, {frame, <<"DISCONNECT">>, _, _}) ->
     lager:info("Connection closed by ~s", [mumq_stomp:peername(Conn)]),
     gen_tcpd:close(mumq_stomp:socket(Conn));
 handle_frame(State, Conn, _) ->
-    lager:info("Invalid command received from ~s", [mumq_stomp:peername(Conn)]),
     mumq_stomp:write_frame(mumq_stomp:socket(Conn),
                            mumq_stomp:error_frame("invalid command")),
+    lager:info("Invalid command received from ~s", [mumq_stomp:peername(Conn)]),
     handle_connection(State, Conn).
