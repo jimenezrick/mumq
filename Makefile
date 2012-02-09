@@ -6,7 +6,7 @@ else
 REBAR_GET ?= curl -s -f $(REBAR_URL) >rebar
 endif
 
-.PHONY: all deps release clean clean-all
+.PHONY: all deps release test clean clean-all
 
 all: rebar deps
 	./rebar compile
@@ -20,6 +20,9 @@ deps: rebar
 
 release: rebar all
 	./rebar generate
+
+test:
+	test/test.sh
 
 clean: rebar
 	./rebar clean

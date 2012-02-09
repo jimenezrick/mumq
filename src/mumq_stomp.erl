@@ -1,6 +1,7 @@
 -module(mumq_stomp).
 
 -export([create_conn/1,
+         socket/1,
          peername/1,
          write_frame/2,
          read_frame/1,
@@ -43,6 +44,8 @@ max_frame_size() ->
             Max
     end.
 
+socket(Conn) -> Conn#conn.sock.
+
 peername(Conn) -> Conn#conn.peer.
 
 write_frame(Socket, Frame) ->
@@ -72,7 +75,7 @@ read_frame2(Conn) ->
     Conn2 = eat_empty_lines(Conn),
     {Cmd, Conn3} = read_line(Conn2),
     {Headers, Conn4} = read_headers(Conn3),
-    BodySize = proplists:get_value(<<"content-length">>, Headers, undefined),
+    BodySize = proplists:get_value(<<"content-length">>, Headers),
     {Body, Conn5} = read_body(Conn4, BodySize),
     {ok, {frame, Cmd, Headers, Body}, Conn5}.
 

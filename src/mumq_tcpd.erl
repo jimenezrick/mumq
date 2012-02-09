@@ -24,8 +24,8 @@ start_link(Name, Type, Port) ->
 init(_Args) ->
     {ok, none}.
 
-handle_connection(Socket, State) ->
-    mumq_conn:handle_connection(Socket, State).
+handle_connection(Socket, none) ->
+    mumq_conn:handle_connection(Socket).
 
 handle_info(_Info, _State) ->
     noreply.
