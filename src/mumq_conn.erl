@@ -2,6 +2,24 @@
 
 -export([handle_connection/1]).
 
+%%%-----------------------------------------------------------------------------
+%%% TODO: Don't strip in the middle white spaces from the headers
+%%% TODO: Save the seesion-id in the State, create a record
+%%% TODO: Implement SEND and SUBSCRIBE
+%%%
+%%% SEND
+%%% destination:/queue/a
+%%%
+%%% hello queue a
+%%% ^@
+%%%
+%%% SUBSCRIBE
+%%% destination: /queue/foo
+%%% ack: client/auto
+%%%
+%%% ^@
+%%%-----------------------------------------------------------------------------
+
 handle_connection(Socket) ->
     handle_connection(disconnected, mumq_stomp:create_conn(Socket)).
 
