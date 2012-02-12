@@ -26,6 +26,8 @@
                frame_size = 0,
                buf = []}).
 
+-define(IS_BLANK_GUARD(X), X == $ ; X == $\t; X == $\r).
+
 create_conn(Socket) ->
     {ok, Peer0} = gen_tcpd:peername(Socket),
     Peer = format_peer(Peer0),
@@ -93,12 +95,21 @@ read_headers(Conn, Headers) ->
         {<<>>, Conn2} ->
             {lists:reverse(Headers), Conn2};
         {Line, Conn2} ->
-            [Key, Val] = lists:map(fun strip_spaces/1, binary:split(Line, <<":">>)),
+            [Key, Val] = lists:map(fun strip_blanks/1, binary:split(Line, <<":">>)),
             read_headers(Conn2, [{Key, Val} | Headers])
     end.
 
-strip_spaces(Bin) ->
-    binary:replace(Bin, <<$ >>, <<>>, [global]).
+strip_blanks(<<H, T/binary>>) when ?IS_BLANK_GUARD(H) ->
+    strip_blanks(T);
+strip_blanks(Bin) ->
+    strip_blanks_right(Bin, [], []).
+
+strip_blanks_right(<<>>, _, Acc) ->
+    list_to_binary(lists:reverse(Acc));
+strip_blanks_right(<<H, T/binary>>, Keep, Acc) when ?IS_BLANK_GUARD(H) ->
+    strip_blanks_right(T, [H | Keep], Acc);
+strip_blanks_right(<<H, T/binary>>, Keep, Acc) ->
+    strip_blanks_right(T, [], [H | Keep ++ Acc]).
 
 parse_headers(Conn, Headers) ->
     [parse_header(Conn, H) || H <- Headers].

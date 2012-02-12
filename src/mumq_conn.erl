@@ -3,7 +3,6 @@
 -export([handle_connection/1]).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: Don't strip in the middle white spaces from the headers
 %%% TODO: Save the seesion-id in the State, create a record
 %%% TODO: Implement SEND and SUBSCRIBE
 %%%
