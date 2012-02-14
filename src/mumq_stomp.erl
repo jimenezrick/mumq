@@ -9,13 +9,14 @@
 
 -export([connect_frame/0,
          connect_frame/2,
-         connected_frame/0,
+         connected_frame/1,
          disconnect_frame/0,
          error_frame/0,
          error_frame/1,
          error_frame/2,
          add_header/3,
-         add_content_length/1]).
+         add_content_length/1,
+         make_session_id/0]).
 
 -include("mumq.hrl").
 
@@ -53,11 +54,15 @@ peername(Conn) -> Conn#conn.peer.
 write_frame(Socket, Frame) ->
     {frame, Cmd, Headers, Body} = Frame,
     Data = [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0],
-    gen_tcpd:send(Socket, Data).
+    ok = gen_tcpd:send(Socket, Data).
 
 prepare_headers(Headers) ->
     [prepare_header(H) || H <- Headers].
 
+prepare_header({Key, Val}) when is_list(Key) ->
+    prepare_header({list_to_binary(Key), Val});
+prepare_header({Key, Val}) when is_list(Val) ->
+    prepare_header({Key, list_to_binary(Val)});
 prepare_header({<<"content-length">>, Len}) when is_integer(Len) ->
     prepare_header({<<"content-length">>, integer_to_list(Len)});
 prepare_header({Key, Val}) ->
@@ -251,8 +256,7 @@ connect_frame() ->
 connect_frame(Login, Pass) ->
     frame(<<"CONNECT">>, [{<<"login">>, Login}, {<<"passcode">>, Pass}]).
 
-connected_frame() ->
-    Session = io_lib:format("~B~B~B-~s", tuple_to_list(now()) ++ [node()]),
+connected_frame(Session) ->
     frame(<<"CONNECTED">>, [{<<"session">>, Session}]).
 
 disconnect_frame() ->
@@ -266,3 +270,6 @@ error_frame(Msg) ->
 
 error_frame(Msg, Body) ->
     frame(<<"ERROR">>, [{<<"message">>, Msg}], Body).
+
+make_session_id() ->
+    io_lib:format("~B~B~B-~s", tuple_to_list(now()) ++ [node()]).

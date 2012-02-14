@@ -23,6 +23,7 @@ add_subscriber(Queue, Pid) ->
 del_subscriber(Queue, Pid) ->
     ets:delete_object(?MODULE, {Queue, Pid}).
 
+% XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
 get_subscribers(Queue) ->
     try
         Pids = ets:lookup_element(?MODULE, Queue, 2),
@@ -33,3 +34,4 @@ get_subscribers(Queue) ->
         error:badarg ->
             error % FIXME
     end.
+% XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
