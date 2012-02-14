@@ -11,7 +11,12 @@
              mumq_sup,
              mumq_tcpd
             ]},
-  {registered, []},
+  {registered, [
+                mumq_sup,
+                mumq_subs,
+                mumq_tcpd,
+                mumq_ssld
+               ]},
   {applications, [
                   kernel,
                   stdlib,

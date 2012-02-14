@@ -6,7 +6,7 @@ else
 REBAR_GET ?= curl -s -f -L $(REBAR_URL) >rebar
 endif
 
-.PHONY: all deps release test clean clean-all
+.PHONY: all deps release test tags clean clean-all
 
 all: rebar deps
 	./rebar compile
@@ -24,8 +24,11 @@ release: rebar all
 test:
 	test/test.sh
 
+tags:
+	ctags -R
+
 clean: rebar
 	./rebar clean
 
 clean-all:
-	rm -rf rebar ebin deps rel/mumq log doc
+	rm -rf rebar ebin deps rel/mumq log doc tags
