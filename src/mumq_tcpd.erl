@@ -19,7 +19,9 @@
 
 start_link(Name, Type, Port) ->
     gen_tcpd:start_link({local, Name}, ?MODULE, [], Type, Port,
-                        [{acceptors, ?TCP_ACCEPTORS}, {socket_options, ?TCP_OPTS}]).
+                        [{acceptors, ?TCP_ACCEPTORS},
+                         {link_acceptors, false},
+                         {socket_options, ?TCP_OPTS}]).
 
 init(_Args) ->
     {ok, none}.
