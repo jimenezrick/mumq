@@ -1,7 +1,14 @@
 -module(mumq_subs).
 
+-behaviour(gen_server).
+
 -export([start_link/0,
-         init/0]).
+         init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
 -export([link/0,
          add_subscription/2,
@@ -14,32 +21,34 @@
                    {read_concurrency, true}]).
 
 start_link() ->
-    proc_lib:start_link(?MODULE, init, []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, self(), []).
 
-init() ->
-    try register(?MODULE, self()) of
-        true ->
-            process_flag(trap_exit, true),
-            ets:new(?MODULE, ?ETS_OPTS),
-            ets:new(rev_ets_name(), ?ETS_OPTS),
-            proc_lib:init_ack({ok, self()}),
-            trap_exits_loop()
-    catch
-        error:badarg ->
-            proc_lib:init_ack({error, {already_started, whereis(?MODULE)}})
-    end.
+init(SupPid) ->
+    process_flag(trap_exit, true),
+    ets:new(?MODULE, ?ETS_OPTS),
+    ets:new(rev_ets_name(), ?ETS_OPTS),
+    {ok, SupPid}.
+
+handle_call(_Req, _From, _State) ->
+    exit(not_implemented).
+
+handle_cast(_Req, _State) ->
+    exit(not_implemented).
+
+handle_info({'EXIT', SupPid, Reason}, SupPid) ->
+    exit(Reason);
+handle_info({'EXIT', Pid, _Reason}, SupPid) ->
+    clean_subscriptions(Pid),
+    {noreply, SupPid}.
+
+terminate(_Reason, _State) ->
+    ok.
+
+code_change(_OldVsn, _State, _Extra) ->
+    exit(not_implemented).
 
 rev_ets_name() ->
     list_to_atom(?MODULE_STRING ++ "_rev").
-
-trap_exits_loop() ->
-    receive
-        {'EXIT', _, shutdown} ->
-            exit(shutdown);
-        {'EXIT', Pid, _} ->
-            clean_subscriptions(Pid),
-            trap_exits_loop()
-    end.
 
 link() ->
     link(whereis(?MODULE)),
