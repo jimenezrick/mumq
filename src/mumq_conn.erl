@@ -8,7 +8,7 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: Falta añadir el message-id del mensaje en send_frame/2
+%%% TODO: Falta añadir el message-id del mensaje en send_frame/2, usar UUID?
 %%% TODO: Implement SUBSCRIBE
 %%%
 %%% SUBSCRIBE
@@ -69,7 +69,7 @@ authenticate_client({frame, <<"CONNECT">>, Headers, _}) ->
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SEND">>, Headers, _}) ->
     case get_destination(Headers) of
         {ok, Dest} ->
-            Pids = mumq_subs:get_subscribers(Dest),
+            Pids = mumq_subs:get_subscriptions(Dest),
             lists:foreach(fun(P) -> send_frame(P, Frame) end, Pids),
             handle_connection(State, Conn);
         {error, _} ->
@@ -78,7 +78,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SE
 handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"SUBSCRIBE">>, Headers, _}) ->
     case get_destination(Headers) of
         {ok, Dest} ->
-            mumq_subs:add_subscriber(Dest, State#state.delivery_proc),
+            mumq_subs:add_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)
@@ -122,6 +122,7 @@ handle_delivery(MonitorRef, Socket, Peer) ->
         Frame ->
             case mumq_stomp:write_frame(Socket, Frame) of
                 ok ->
+                    lager:debug("Message delivered to ~s", [Peer]),
                     handle_delivery(MonitorRef, Socket, Peer);
                 {error, Reason} ->
                     lager:debug("Couldn't deliver message to ~s", [Peer]),

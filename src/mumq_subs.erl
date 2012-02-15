@@ -4,9 +4,9 @@
          init/0]).
 
 -export([link/0,
-         add_subscriber/2,
-         del_subscriber/2,
-         get_subscribers/1]).
+         add_subscription/2,
+         del_subscription/2,
+         get_subscriptions/1]).
 
 -define(ETS_OPTS, [duplicate_bag,
                    named_table,
@@ -21,51 +21,54 @@ init() ->
         true ->
             process_flag(trap_exit, true),
             ets:new(?MODULE, ?ETS_OPTS),
+            ets:new(rev_ets_name(), ?ETS_OPTS),
             proc_lib:init_ack({ok, self()}),
-            supervise_loop()
+            trap_exits_loop()
     catch
         error:badarg ->
             proc_lib:init_ack({error, {already_started, whereis(?MODULE)}})
     end.
 
-supervise_loop() ->
+rev_ets_name() ->
+    list_to_atom(?MODULE_STRING ++ "_rev").
+
+trap_exits_loop() ->
     receive
-        {'EXIT', _From, shutdown} ->
+        {'EXIT', _, shutdown} ->
             exit(shutdown);
-        _ ->
-            % XXX XXX XXX
-            supervise_loop()
-            % XXX XXX XXX
+        {'EXIT', Pid, _} ->
+            clean_subscriptions(Pid),
+            trap_exits_loop()
     end.
 
 link() ->
     link(whereis(?MODULE)),
     put('$ancestors', [?MODULE | get('$ancestors')]).
 
-add_subscriber(Queue, Pid) ->
-    ets:insert(?MODULE, {Queue, Pid}).
+add_subscription(Queue, DeliveryProc) ->
+    ets:insert(?MODULE, {Queue, DeliveryProc}),
+    ets:insert(rev_ets_name(), {self(), DeliveryProc, Queue}).
 
-del_subscriber(Queue, Pid) ->
-    ets:delete_object(?MODULE, {Queue, Pid}).
+del_subscription(Queue, DeliveryProc) ->
+    ets:delete_object(?MODULE, {Queue, DeliveryProc}),
+    ets:delete_object(rev_ets_name(), {self(), DeliveryProc, Queue}).
 
-%%%
-%%% FIXME: Cuando un proceso conn muere, desuscribirlo automaticamente de todo
-%%% TODO: Hacer una segunda tabla ETS mumq_subs_rev en la que se anote que subscripciones tiene un proceso?
-%%%       Usarla para las limpiezas
-%%%
+clean_subscriptions(Pid) ->
+    Subs = ets:lookup(rev_ets_name(), Pid),
+    ets:delete(rev_ets_name(), Pid),
+    lists:foreach(fun({_, D, Q}) -> ets:delete_object(?MODULE, {Q, D}) end, Subs).
 
-get_subscribers(Queue) ->
-    % TODO: Buscar recursivamente y sacar el Pid de los procesos de las colas padre?
+%% TODO: Buscar recursivamente y sacar el Pid de los procesos de las colas padre?
+get_subscriptions(Queue) ->
+    ets_lookup_element(?MODULE, Queue, 2).
+
+ets_lookup_element(Tab, Key, Pos) ->
     try
-        ets:lookup_element(?MODULE, Queue, 2)
+        ets:lookup_element(Tab, Key, Pos)
     catch
         error:badarg ->
             []
     end.
 
-
-
-
-
 %get_all_subqueues(Queue) ->
-    %Parts = binary:split(Queue, <<$/>>, [trim, global]),
+%Parts = binary:split(Queue, <<$/>>, [trim, global]),
