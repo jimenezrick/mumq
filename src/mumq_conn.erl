@@ -9,7 +9,7 @@
 
 %%%-----------------------------------------------------------------------------
 %%% TODO: Falta añadir el message-id del mensaje en send_frame/2, usar UUID?
-%%% TODO: Implement SUBSCRIBE
+%%% TODO: Implement SUBSCRIBE and UNSUBSCRIBE
 %%%
 %%% SUBSCRIBE
 %%% destination: /queue/foo
