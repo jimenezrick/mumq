@@ -1,7 +1,7 @@
 -module(mumq_conn).
 
 -export([handle_connection/1,
-         handle_delivery/2]).
+         handle_delivery/3]).
 
 -record(state, {conn_state = disconnected,
                 delivery_proc,
@@ -20,7 +20,7 @@
 
 handle_connection(Socket) ->
     Conn = mumq_stomp:create_conn(Socket),
-    Pid = spawn_link(?MODULE, handle_delivery, [Socket, mumq_stomp:peername(Conn)]),
+    Pid = start_delivery_proc(Socket, mumq_stomp:peername(Conn)),
     State = #state{delivery_proc = Pid},
     handle_connection(State, Conn).
 
@@ -116,14 +116,19 @@ handle_frame(_, Conn, _) ->
     lager:info("Invalid command received from ~s", [mumq_stomp:peername(Conn)]),
     gen_tcpd:close(mumq_stomp:socket(Conn)).
 
-handle_delivery(Socket, Peer) ->
-    % TODO:
-    % 2. Terminar este proceso cuando acabe el otro, monitor?
+start_delivery_proc(Socket, Peer) ->
+    spawn_link(?MODULE, handle_delivery, [self(), Socket, Peer]).
+
+handle_delivery(Parent, Socket, Peer) when is_pid(Parent) ->
+    handle_delivery(monitor(process, Parent), Socket, Peer);
+handle_delivery(MonitorRef, Socket, Peer) ->
     receive
+        {'DOWN', MonitorRef, process, _, Reason} ->
+            exit(Reason);
         Frame ->
             case mumq_stomp:write_frame(Socket, Frame) of
                 ok ->
-                    handle_delivery(Socket, Peer);
+                    handle_delivery(MonitorRef, Socket, Peer);
                 {error, Reason} ->
                     lager:debug("Couldn't deliver message to ~s", [Peer]),
                     exit(Reason)
