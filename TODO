@@ -1,2 +1,2 @@
-- Support all the STOMP 1.0 protocol, maybe some 1.1.
+- Support more features from the STOMP 1.0 protocol.
 - Add persistence support.

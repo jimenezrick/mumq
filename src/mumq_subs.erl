@@ -25,8 +25,8 @@ start_link() ->
 
 init(SupPid) ->
     process_flag(trap_exit, true),
-    ets:new(?MODULE, ?ETS_OPTS),
-    ets:new(rev_ets_name(), ?ETS_OPTS),
+    ets:new(mumq_subs, ?ETS_OPTS),
+    ets:new(mumq_subs_rev, ?ETS_OPTS),
     {ok, SupPid}.
 
 handle_call(_Req, _From, _State) ->
@@ -47,28 +47,25 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, _State, _Extra) ->
     exit(not_implemented).
 
-rev_ets_name() ->
-    list_to_atom(?MODULE_STRING ++ "_rev").
-
 link() ->
     link(whereis(?MODULE)),
     put('$ancestors', [?MODULE | get('$ancestors')]).
 
 add_subscription(Queue, DeliveryProc) ->
-    ets:insert(?MODULE, {Queue, DeliveryProc}),
-    ets:insert(rev_ets_name(), {self(), DeliveryProc, Queue}).
+    ets:insert(mumq_subs, {Queue, DeliveryProc}),
+    ets:insert(mumq_subs_rev, {self(), DeliveryProc, Queue}).
 
 del_subscription(Queue, DeliveryProc) ->
-    ets:delete_object(?MODULE, {Queue, DeliveryProc}),
-    ets:delete_object(rev_ets_name(), {self(), DeliveryProc, Queue}).
+    ets:delete_object(mumq_subs, {Queue, DeliveryProc}),
+    ets:delete_object(mumq_subs_rev, {self(), DeliveryProc, Queue}).
 
 clean_subscriptions(Pid) ->
-    Subs = ets:lookup(rev_ets_name(), Pid),
-    ets:delete(rev_ets_name(), Pid),
-    lists:foreach(fun({_, D, Q}) -> ets:delete_object(?MODULE, {Q, D}) end, Subs).
+    Subs = ets:lookup(mumq_subs_rev, Pid),
+    ets:delete(mumq_subs_rev, Pid),
+    lists:foreach(fun({_, D, Q}) -> ets:delete_object(mumq_subs, {Q, D}) end, Subs).
 
 get_subscriptions(Queue) ->
-    Subs = [ets_lookup_element(?MODULE, Q, 2) || Q <- generate_all_subqueues(Queue)],
+    Subs = [ets_lookup_element(mumq_subs, Q, 2) || Q <- generate_all_subqueues(Queue)],
     lists:append(Subs).
 
 ets_lookup_element(Tab, Key, Pos) ->
@@ -79,11 +76,9 @@ ets_lookup_element(Tab, Key, Pos) ->
             []
     end.
 
-generate_all_subqueues(<<$/>>) ->
-    [<<$/>>];
 generate_all_subqueues(Queue) ->
     [{0, _} | Matches] = binary:matches(Queue, <<$/>>),
-    generate_all_subqueues(Queue, Matches).
+    [Queue | generate_all_subqueues(Queue, Matches)].
 
 generate_all_subqueues(Queue, Matches) ->
-    [<<$/>>, Queue | [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches]].
+    [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches].
