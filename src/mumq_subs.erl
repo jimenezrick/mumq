@@ -58,9 +58,9 @@ clean_subscriptions(Pid) ->
     ets:delete(rev_ets_name(), Pid),
     lists:foreach(fun({_, D, Q}) -> ets:delete_object(?MODULE, {Q, D}) end, Subs).
 
-%% TODO: Buscar recursivamente y sacar el Pid de los procesos de las colas padre?
 get_subscriptions(Queue) ->
-    ets_lookup_element(?MODULE, Queue, 2).
+    Subs = [ets_lookup_element(?MODULE, Q, 2) || Q <- generate_all_subqueues(Queue)],
+    lists:append(Subs).
 
 ets_lookup_element(Tab, Key, Pos) ->
     try
@@ -70,5 +70,11 @@ ets_lookup_element(Tab, Key, Pos) ->
             []
     end.
 
-%get_all_subqueues(Queue) ->
-%Parts = binary:split(Queue, <<$/>>, [trim, global]),
+generate_all_subqueues(<<$/>>) ->
+    [<<$/>>];
+generate_all_subqueues(Queue) ->
+    [{0, _} | Matches] = binary:matches(Queue, <<$/>>),
+    generate_all_subqueues(Queue, Matches).
+
+generate_all_subqueues(Queue, Matches) ->
+    [<<$/>>, Queue | [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches]].

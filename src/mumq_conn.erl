@@ -102,12 +102,19 @@ handle_frame(_, Conn, _) ->
 
 get_destination(Headers) ->
     case proplists:get_value(<<"destination">>, Headers) of
-        Dest = <<$/, _/binary>> ->
-            {ok, Dest};
-        Dest when is_binary(Dest) ->
-            {error, invalid};
         undefined ->
-            {error, undefined}
+            {error, undefined};
+        <<>> ->
+            {error, invalid};
+        <<$/>> ->
+            {ok, <<$/>>};
+        Dest ->
+            case {binary:first(Dest), binary:last(Dest), binary:match(Dest, <<"//">>)} of
+                {$/, Last, nomatch} when Last /= $/ ->
+                    {ok, Dest};
+                _ ->
+                    {error, invalid}
+            end
     end.
 
 start_delivery_proc(Socket, Peer) ->
