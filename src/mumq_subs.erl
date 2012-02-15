@@ -65,7 +65,7 @@ clean_subscriptions(Pid) ->
     lists:foreach(fun({_, D, Q}) -> ets:delete_object(mumq_subs, {Q, D}) end, Subs).
 
 get_subscriptions(Queue) ->
-    Subs = [ets_lookup_element(mumq_subs, Q, 2) || Q <- generate_all_subqueues(Queue)],
+    Subs = [ets_lookup_element(mumq_subs, Q, 2) || Q <- gen_queue_hierarchy(Queue)],
     lists:append(Subs).
 
 ets_lookup_element(Tab, Key, Pos) ->
@@ -76,9 +76,9 @@ ets_lookup_element(Tab, Key, Pos) ->
             []
     end.
 
-generate_all_subqueues(Queue) ->
+gen_queue_hierarchy(Queue) ->
     [{0, _} | Matches] = binary:matches(Queue, <<$/>>),
-    [Queue | generate_all_subqueues(Queue, Matches)].
+    [Queue | gen_queue_hierarchy(Queue, Matches)].
 
-generate_all_subqueues(Queue, Matches) ->
+gen_queue_hierarchy(Queue, Matches) ->
     [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches].

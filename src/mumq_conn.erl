@@ -8,7 +8,10 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
+%%% FIXME: En mumq_subs:del_subscription(), se borran todas las subscripciones
+%%%        de una misma cola. Meter el sub-id para evitarlo?
 %%% TODO: Falta añadir el message-id del mensaje en send_frame/2, usar UUID?
+%%% TODO: Añadir tambien subscription-id en las subscripciones
 %%% TODO: Implement SUBSCRIBE and UNSUBSCRIBE
 %%%
 %%% SUBSCRIBE
@@ -70,7 +73,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SE
     case get_destination(Headers) of
         {ok, Dest} ->
             Pids = mumq_subs:get_subscriptions(Dest),
-            lists:foreach(fun(P) -> send_frame(P, Frame) end, Pids),
+            lists:foreach(fun(P) -> P ! mumq_stomp:message_frame(Frame) end, Pids),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)
@@ -134,10 +137,6 @@ handle_delivery(MonitorRef, Socket, Peer) ->
                     exit(Reason)
             end
     end.
-
-send_frame(Pid, Frame) ->
-    {frame, <<"SEND">>, Headers, Body} = Frame,
-    Pid ! {frame, <<"MESSAGE">>, Headers, Body}.
 
 write_error_frame(Conn, ErrorMsg, LogMsg) ->
     mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame(ErrorMsg)),

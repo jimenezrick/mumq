@@ -11,6 +11,8 @@
          connect_frame/2,
          connected_frame/1,
          disconnect_frame/0,
+         message_frame/1,
+         message_frame/2,
          error_frame/0,
          error_frame/1,
          error_frame/2,
@@ -261,6 +263,12 @@ connected_frame(Session) ->
 
 disconnect_frame() ->
     frame(<<"DISCONNECT">>).
+
+message_frame({frame, <<"SEND">>, Headers, Body}) ->
+    frame(<<"MESSAGE">>, Headers, Body).
+
+message_frame(Dest, Body) ->
+    frame(<<"MESSAGE">>, [{<<"destination">>, Dest}], Body).
 
 error_frame() ->
     frame(<<"ERROR">>).
