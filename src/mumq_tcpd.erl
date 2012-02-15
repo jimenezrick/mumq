@@ -27,7 +27,7 @@ init(_Args) ->
     {ok, none}.
 
 handle_connection(Socket, none) ->
-    link(whereis(mumq_subs)),
+    mumq_subs:link(),
     mumq_conn:handle_connection(Socket).
 
 handle_info(_Info, _State) ->

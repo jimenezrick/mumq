@@ -3,7 +3,8 @@
 -export([start_link/0,
          init/0]).
 
--export([add_subscriber/2,
+-export([link/0,
+         add_subscriber/2,
          del_subscriber/2,
          get_subscribers/1]).
 
@@ -36,6 +37,10 @@ supervise_loop() ->
             supervise_loop()
             % XXX XXX XXX
     end.
+
+link() ->
+    link(whereis(?MODULE)),
+    put('$ancestors', [?MODULE | get('$ancestors')]).
 
 add_subscriber(Queue, Pid) ->
     ets:insert(?MODULE, {Queue, Pid}).

@@ -1,7 +1,7 @@
 -module(mumq_conn).
 
 -export([handle_connection/1,
-         handle_delivery/1]).
+         handle_delivery/2]).
 
 -record(state, {conn_state = disconnected,
                 delivery_proc,
@@ -9,13 +9,7 @@
 
 %%%-----------------------------------------------------------------------------
 %%% TODO: Falta añadir el message-id del mensaje en send_frame/2
-%%% TODO: Implement SEND and SUBSCRIBE
-%%%
-%%% SEND
-%%% destination:/queue/a
-%%%
-%%% hello queue a
-%%% ^@
+%%% TODO: Implement SUBSCRIBE
 %%%
 %%% SUBSCRIBE
 %%% destination: /queue/foo
@@ -25,9 +19,10 @@
 %%%-----------------------------------------------------------------------------
 
 handle_connection(Socket) ->
-    Pid = spawn_link(?MODULE, handle_delivery, [Socket]),
+    Conn = mumq_stomp:create_conn(Socket),
+    Pid = spawn_link(?MODULE, handle_delivery, [Socket, mumq_stomp:peername(Conn)]),
     State = #state{delivery_proc = Pid},
-    handle_connection(State, mumq_stomp:create_conn(Socket)).
+    handle_connection(State, Conn).
 
 handle_connection(State, Conn) ->
     try
@@ -121,11 +116,18 @@ handle_frame(_, Conn, _) ->
     lager:info("Invalid command received from ~s", [mumq_stomp:peername(Conn)]),
     gen_tcpd:close(mumq_stomp:socket(Conn)).
 
-handle_delivery(Socket) ->
+handle_delivery(Socket, Peer) ->
+    % TODO:
+    % 2. Terminar este proceso cuando acabe el otro, monitor?
     receive
         Frame ->
-            mumq_stomp:write_frame(Socket, Frame),
-            handle_delivery(Socket)
+            case mumq_stomp:write_frame(Socket, Frame) of
+                ok ->
+                    handle_delivery(Socket, Peer);
+                {error, Reason} ->
+                    lager:debug("Couldn't deliver message to ~s", [Peer]),
+                    exit(Reason)
+            end
     end.
 
 send_frame(Pid, Frame) ->

@@ -54,7 +54,7 @@ peername(Conn) -> Conn#conn.peer.
 write_frame(Socket, Frame) ->
     {frame, Cmd, Headers, Body} = Frame,
     Data = [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0],
-    ok = gen_tcpd:send(Socket, Data).
+    gen_tcpd:send(Socket, Data).
 
 prepare_headers(Headers) ->
     [prepare_header(H) || H <- Headers].

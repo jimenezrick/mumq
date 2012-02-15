@@ -6,7 +6,7 @@ else
 REBAR_GET ?= curl -s -f -L $(REBAR_URL) >rebar
 endif
 
-.PHONY: all deps release test tags clean clean-all
+.PHONY: all deps release tags clean clean-all
 
 all: rebar deps
 	./rebar compile
@@ -20,9 +20,6 @@ deps: rebar
 
 release: rebar all
 	./rebar generate
-
-test:
-	test/test.sh
 
 tags:
 	ctags -R
