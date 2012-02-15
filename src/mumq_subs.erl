@@ -49,8 +49,6 @@ del_subscriber(Queue, Pid) ->
     ets:delete_object(?MODULE, {Queue, Pid}).
 
 %%%
-%%% FIXME: Queda ver como gestionar los unlink(), no quitar los links?
-%%%
 %%% FIXME: Cuando un proceso conn muere, desuscribirlo automaticamente de todo
 %%% TODO: Hacer una segunda tabla ETS mumq_subs_rev en la que se anote que subscripciones tiene un proceso?
 %%%       Usarla para las limpiezas
@@ -64,3 +62,10 @@ get_subscribers(Queue) ->
         error:badarg ->
             []
     end.
+
+
+
+
+
+%get_all_subqueues(Queue) ->
+    %Parts = binary:split(Queue, <<$/>>, [trim, global]),

@@ -28,17 +28,9 @@ handle_connection(State, Conn) ->
     try
         case mumq_stomp:read_frame(Conn) of
             {error, bad_frame} ->
-                mumq_stomp:write_frame(mumq_stomp:socket(Conn),
-                                       mumq_stomp:error_frame("invalid frame")),
-                lager:info("Invalid frame received from ~s",
-                           [mumq_stomp:peername(Conn)]),
-                gen_tcpd:close(mumq_stomp:socket(Conn));
+                write_invalid_frame(Conn);
             {error, bad_frame_size} ->
-                mumq_stomp:write_frame(mumq_stomp:socket(Conn),
-                                       mumq_stomp:error_frame("frame too big")),
-                lager:info("Frame too big received from ~s",
-                           [mumq_stomp:peername(Conn)]),
-                gen_tcpd:close(mumq_stomp:socket(Conn));
+                write_frame_too_big(Conn);
             {ok, Frame, Conn2} ->
                 mumq_stomp:log_frame(Frame, mumq_stomp:peername(Conn2)),
                 handle_frame(State, Conn2, Frame)
@@ -74,6 +66,23 @@ authenticate_client({frame, <<"CONNECT">>, Headers, _}) ->
             end
     end.
 
+handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SEND">>, Headers, _}) ->
+    case get_destination(Headers) of
+        {ok, Dest} ->
+            Pids = mumq_subs:get_subscribers(Dest),
+            lists:foreach(fun(P) -> send_frame(P, Frame) end, Pids),
+            handle_connection(State, Conn);
+        {error, _} ->
+            write_invalid_frame(Conn)
+    end;
+handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"SUBSCRIBE">>, Headers, _}) ->
+    case get_destination(Headers) of
+        {ok, Dest} ->
+            mumq_subs:add_subscriber(Dest, State#state.delivery_proc),
+            handle_connection(State, Conn);
+        {error, _} ->
+            write_invalid_frame(Conn)
+    end;
 handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = {frame, <<"CONNECT">>, _, _}) ->
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
     case authenticate_client(Frame) of
@@ -83,38 +92,23 @@ handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = {frame, <<
             lager:info("Client ~s connected with session ~s", [mumq_stomp:peername(Conn), Session]),
             handle_connection(State#state{conn_state = connected, session = Session}, Conn);
         {error, incorrect_login} ->
-            mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame("incorrect login")),
-            lager:info("Client ~s failed authentication", [mumq_stomp:peername(Conn)]),
-            gen_tcpd:close(mumq_stomp:socket(Conn))
+            write_incorrect_login(Conn)
     end;
 handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"DISCONNECT">>, _, _}) ->
     lager:info("Connection closed by ~s with session ~s", [mumq_stomp:peername(Conn), State#state.session]),
     gen_tcpd:close(mumq_stomp:socket(Conn));
-handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SEND">>, Headers, _}) ->
-    case proplists:get_value(<<"destination">>, Headers) of
-        undefined ->
-            mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame("invalid frame")),
-            lager:info("Invalid frame received from ~s", [mumq_stomp:peername(Conn)]),
-            gen_tcpd:close(mumq_stomp:socket(Conn));
-        Dest ->
-            Pids = mumq_subs:get_subscribers(Dest),
-            lists:foreach(fun(P) -> send_frame(P, Frame) end, Pids),
-            handle_connection(State, Conn)
-    end;
-handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"SUBSCRIBE">>, Headers, _}) ->
-    case proplists:get_value(<<"destination">>, Headers) of
-        undefined ->
-            mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame("invalid frame")),
-            lager:info("Invalid frame received from ~s", [mumq_stomp:peername(Conn)]),
-            gen_tcpd:close(mumq_stomp:socket(Conn));
-        Dest ->
-            mumq_subs:add_subscriber(Dest, State#state.delivery_proc),
-            handle_connection(State, Conn)
-    end;
 handle_frame(_, Conn, _) ->
-    mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame("invalid command")),
-    lager:info("Invalid command received from ~s", [mumq_stomp:peername(Conn)]),
-    gen_tcpd:close(mumq_stomp:socket(Conn)).
+    write_invalid_frame(Conn).
+
+get_destination(Headers) ->
+    case proplists:get_value(<<"destination">>, Headers) of
+        Dest = <<$/, _/binary>> ->
+            {ok, Dest};
+        Dest when is_binary(Dest) ->
+            {error, invalid};
+        undefined ->
+            {error, undefined}
+    end.
 
 start_delivery_proc(Socket, Peer) ->
     spawn_link(?MODULE, handle_delivery, [self(), Socket, Peer]).
@@ -138,3 +132,17 @@ handle_delivery(MonitorRef, Socket, Peer) ->
 send_frame(Pid, Frame) ->
     {frame, <<"SEND">>, Headers, Body} = Frame,
     Pid ! {frame, <<"MESSAGE">>, Headers, Body}.
+
+write_error_frame(Conn, ErrorMsg, LogMsg) ->
+    mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame(ErrorMsg)),
+    lager:info(LogMsg, [mumq_stomp:peername(Conn)]),
+    gen_tcpd:close(mumq_stomp:socket(Conn)).
+
+write_invalid_frame(Conn) ->
+    write_error_frame(Conn, "invalid frame", "Invalid frame received from ~s").
+
+write_frame_too_big(Conn) ->
+    write_error_frame(Conn, "frame too big", "Frame too big received from ~s").
+
+write_incorrect_login(Conn) ->
+    write_error_frame(Conn, "incorrect login", "Client ~s failed authentication").
