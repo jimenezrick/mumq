@@ -1,3 +1,4 @@
 - Support more features from the STOMP 1.0 protocol.
 - Add persistence support.
 - Add bridge more between several brokers.
+- Make some simple benchmark.
