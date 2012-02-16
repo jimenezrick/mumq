@@ -1,8 +1,8 @@
   μMQ
 =======
 
-Very simple, small and fast STOMP message broker written in Erlang. A
-subset of STOMP 1.0 is supported with in-memory persistence.
+Very simple, small and fast STOMP 1.0 message broker with in-memory
+persistence written in Erlang.
 
 
  Install
