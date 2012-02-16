@@ -269,10 +269,10 @@ disconnect_frame() ->
     frame(<<"DISCONNECT">>).
 
 message_frame({frame, <<"SEND">>, Headers, Body}) ->
-    frame(<<"MESSAGE">>, Headers, Body).
+    add_header(frame(<<"MESSAGE">>, Headers, Body), <<"message-id">>, make_uuid_base64()).
 
 message_frame(Dest, Body) ->
-    frame(<<"MESSAGE">>, [{<<"destination">>, Dest}], Body).
+    frame(<<"MESSAGE">>, [{<<"destination">>, Dest}, {<<"message-id">>, make_uuid_base64()}], Body).
 
 error_frame() ->
     frame(<<"ERROR">>).

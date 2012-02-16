@@ -10,7 +10,6 @@
 %%%-----------------------------------------------------------------------------
 %%% FIXME: En mumq_subs:del_subscription(), se borran todas las subscripciones
 %%%        de una misma cola. Meter el sub-id para evitarlo?
-%%% TODO: Falta añadir el message-id del mensaje en send_frame/2, usar UUID?
 %%% TODO: Añadir tambien subscription-id en las subscripciones
 %%% TODO: Implement SUBSCRIBE and UNSUBSCRIBE
 %%%
