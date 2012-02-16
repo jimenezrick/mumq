@@ -3,17 +3,22 @@
 -export([handle_connection/1,
          handle_delivery/3]).
 
+-include("mumq.hrl").
+
 -record(state, {conn_state = disconnected,
                 delivery_proc,
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: Añadir tambien subscription-id en las subscripciones
-%%% TODO: Implement SUBSCRIBE and UNSUBSCRIBE
+%%% TODO: En write_invalid_frame/0 poder añadir el frame erroneo?
+%%% TODO: Añadir tambien id en las subscripciones.
+%%%       Actualizar mumq_subs para que contemple el id.
+%%%       El id es opcional, contemplarlo tambien en el gen_server de la cola.
+%%% TODO: Implementar los ACKS cuando este hechas las colas persistentes.
 %%%
 %%% SUBSCRIBE
 %%% destination: /queue/foo
-%%% ack: client/auto <----------------------------------- !!!
+%%% ack: client/auto <----------------------------------- TODO!!!
 %%%
 %%% ^@
 %%%-----------------------------------------------------------------------------
@@ -42,7 +47,7 @@ handle_connection(State, Conn) ->
             lager:info("Connection error with ~s", [mumq_stomp:peername(Conn)])
     end.
 
-authenticate_client({frame, <<"CONNECT">>, Headers, _}) ->
+authenticate_client(Headers) ->
     case application:get_env(allow_users) of
         undefined ->
             ok;
@@ -66,8 +71,8 @@ authenticate_client({frame, <<"CONNECT">>, Headers, _}) ->
             end
     end.
 
-handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SEND">>, Headers, _}) ->
-    case get_destination(Headers) of
+handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = send}) ->
+    case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
             Pids = mumq_subs:get_subscriptions(Dest),
             lists:foreach(fun(P) -> P ! mumq_stomp:message_frame(Frame) end, Pids),
@@ -75,47 +80,54 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = {frame, <<"SE
         {error, _} ->
             write_invalid_frame(Conn)
     end;
-handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"SUBSCRIBE">>, Headers, _}) ->
-    case get_destination(Headers) of
+handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = subscribe}) ->
+    case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
             mumq_subs:add_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)
     end;
-handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"UNSUBSCRIBE">>, Headers, _}) ->
-    case get_destination(Headers) of
+handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = unsubscribe}) ->
+    case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
             mumq_subs:del_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)
     end;
-handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = {frame, <<"CONNECT">>, _, _}) ->
+handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = #frame{cmd = connect}) ->
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
-    case authenticate_client(Frame) of
+    case authenticate_client(Frame#frame.headers) of
         ok ->
             Session = mumq_stomp:make_uuid_base64(),
-            mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:connected_frame(Session)),
-            lager:info("Client ~s connected with session ~s", [mumq_stomp:peername(Conn), Session]),
-            handle_connection(State#state{conn_state = connected, session = Session}, Conn);
+            mumq_stomp:write_frame(mumq_stomp:socket(Conn),
+                                   mumq_stomp:connected_frame(Session)),
+            lager:info("Client ~s connected with session ~s",
+                       [mumq_stomp:peername(Conn), Session]),
+            handle_connection(State#state{conn_state = connected,
+                                          session = Session}, Conn);
         {error, incorrect_login} ->
             write_incorrect_login(Conn)
     end;
-handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"DISCONNECT">>, _, _}) ->
-    lager:info("Connection closed by ~s with session ~s", [mumq_stomp:peername(Conn), State#state.session]),
+handle_frame(State = #state{conn_state = connected}, Conn, #frame{cmd = disconnect}) ->
+    lager:info("Connection closed by ~s with session ~s",
+               [mumq_stomp:peername(Conn), State#state.session]),
     gen_tcpd:close(mumq_stomp:socket(Conn));
 handle_frame(_, Conn, _) ->
     write_invalid_frame(Conn).
 
-get_destination(Headers) ->
+validate_destination(Headers) ->
     case proplists:get_value(<<"destination">>, Headers) of
         undefined ->
             {error, undefined};
         <<>> ->
             {error, bad_destination};
         Dest ->
-            case {binary:first(Dest), binary:last(Dest), binary:match(Dest, <<"//">>)} of
+            case
+                {binary:first(Dest), binary:last(Dest),
+                 binary:match(Dest, <<"//">>)}
+            of
                 {$/, Last, nomatch} when Last /= $/ ->
                     {ok, Dest};
                 _ ->

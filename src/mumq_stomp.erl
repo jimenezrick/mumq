@@ -15,7 +15,6 @@
          disconnect_frame/0,
          message_frame/1,
          message_frame/2,
-         error_frame/0,
          error_frame/1,
          error_frame/2,
          add_header/3,
@@ -25,15 +24,15 @@
 
 -include("mumq.hrl").
 
+-define(IS_BLANK_GUARD(X), X == $ ; X == $\t; X == $\r).
+-define(HASH_RANGE, 4294967296).
+
 -record(conn, {sock,
                peer,
                recv_len,
                max_frame_size,
                frame_size = 0,
                buf = []}).
-
--define(IS_BLANK_GUARD(X), X == $ ; X == $\t; X == $\r).
--define(HASH_RANGE, 4294967296).
 
 create_conn(Socket) ->
     {ok, Peer0} = gen_tcpd:peername(Socket),
@@ -58,7 +57,8 @@ socket(Conn) -> Conn#conn.sock.
 peername(Conn) -> Conn#conn.peer.
 
 write_frame(Socket, Frame) ->
-    {frame, Cmd, Headers, Body} = Frame,
+    #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
+    Cmd = atom_to_binary(Cmd0, latin1),
     Data = [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0],
     gen_tcpd:send(Socket, Data).
 
@@ -86,11 +86,41 @@ read_frame(Conn) ->
 
 read_frame2(Conn) ->
     Conn2 = eat_empty_lines(Conn),
-    {Cmd, Conn3} = read_line(Conn2),
+    {Cmd, Conn3} = read_command(Conn2),
     {Headers, Conn4} = read_headers(Conn3),
     BodySize = proplists:get_value(<<"content-length">>, Headers),
     {Body, Conn5} = read_body(Conn4, BodySize),
-    {ok, {frame, Cmd, Headers, Body}, Conn5}.
+    {ok, #frame{cmd = Cmd, headers = Headers, body = Body}, Conn5}.
+
+read_command(Conn) ->
+    {Line, Conn2} = read_line(Conn),
+    Cmd = case Line of
+        <<"SEND">> ->
+            send;
+        <<"SUBSCRIBE">> ->
+            subscribe;
+        <<"UNSUBSCRIBE">> ->
+            unsubscribe;
+        <<"BEGIN">> ->
+            'begin';
+        <<"COMMIT">> ->
+            commit;
+        <<"ABORT">> ->
+            abort;
+        <<"ACK">> ->
+            ack;
+        <<"DISCONNECT">> ->
+            disconnect;
+        <<"MESSAGE">> ->
+            message;
+        <<"RECEIPT">> ->
+            receipt;
+        <<"ERROR">> ->
+            error;
+        _ ->
+            throw(bad_frame)
+    end,
+    {Cmd, Conn2}.
 
 read_headers(Conn) ->
     try
@@ -233,55 +263,41 @@ read_buffer(Conn = #conn{buf = []}, RecvLen) ->
 read_buffer(Conn, _) ->
     Conn#conn.buf.
 
-log_frame({frame, Cmd, Headers, Body}, Peer) ->
+log_frame(Frame, Peer) ->
     lager:debug("Frame received from ~s~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
-                [Peer, Cmd, Headers, Body]).
-
-frame(Cmd) ->
-    frame(Cmd, [], <<>>).
-
-frame(Cmd, Headers) when is_tuple(hd(Headers)) ->
-    frame(Cmd, Headers, <<>>);
-frame(Cmd, Body) ->
-    frame(Cmd, [], Body).
-
-frame(Cmd, Headers, Body) ->
-    {frame, Cmd, Headers, Body}.
+                [Peer, Frame#frame.cmd, Frame#frame.headers, Frame#frame.body]).
 
 add_header(Frame, Key, Val) ->
-    {frame, Cmd, Headers, Body} = Frame,
-    {frame, Cmd, [{Key, Val} | Headers], Body}.
+    Frame#frame{headers = [{Key, Val} | Frame#frame.headers]}.
 
 add_content_length(Frame) ->
-    {frame, _, _, Body} = Frame,
-    add_header(Frame, <<"content-length">>, iolist_size(Body)).
+    add_header(Frame, <<"content-length">>, iolist_size(Frame#frame.body)).
 
 connect_frame() ->
-    frame(<<"CONNECT">>).
+    #frame{cmd = connect}.
 
 connect_frame(Login, Pass) ->
-    frame(<<"CONNECT">>, [{<<"login">>, Login}, {<<"passcode">>, Pass}]).
+    #frame{cmd = connect, headers = [{<<"login">>, Login}, {<<"passcode">>, Pass}]}.
 
 connected_frame(Session) ->
-    frame(<<"CONNECTED">>, [{<<"session">>, Session}]).
+    #frame{cmd = connected, headers = [{<<"session">>, Session}]}.
 
 disconnect_frame() ->
-    frame(<<"DISCONNECT">>).
+    #frame{cmd = disconnect}.
 
-message_frame({frame, <<"SEND">>, Headers, Body}) ->
-    add_header(frame(<<"MESSAGE">>, Headers, Body), <<"message-id">>, make_uuid_base64()).
+message_frame(#frame{cmd = send, headers = Headers, body = Body}) ->
+    add_header(#frame{cmd = message, headers = Headers, body = Body},
+               <<"message-id">>, make_uuid_base64()).
 
 message_frame(Dest, Body) ->
-    frame(<<"MESSAGE">>, [{<<"destination">>, Dest}, {<<"message-id">>, make_uuid_base64()}], Body).
-
-error_frame() ->
-    frame(<<"ERROR">>).
+    #frame{cmd = message, headers = [{<<"destination">>, Dest},
+                                     {<<"message-id">>, make_uuid_base64()}], body = Body}.
 
 error_frame(Msg) ->
-    frame(<<"ERROR">>, [{<<"message">>, Msg}]).
+    #frame{cmd = error, headers = [{<<"message">>, Msg}]}.
 
 error_frame(Msg, Body) ->
-    frame(<<"ERROR">>, [{<<"message">>, Msg}], Body).
+    #frame{cmd = error, headers = [{<<"message">>, Msg}], body = Body}.
 
 save_startup_timestamp() ->
     application:set_env(mumq, startup_timestamp, now()).
