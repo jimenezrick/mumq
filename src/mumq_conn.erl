@@ -8,8 +8,6 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% FIXME: En mumq_subs:del_subscription(), se borran todas las subscripciones
-%%%        de una misma cola. Meter el sub-id para evitarlo?
 %%% TODO: Añadir tambien subscription-id en las subscripciones
 %%% TODO: Implement SUBSCRIBE and UNSUBSCRIBE
 %%%
@@ -81,6 +79,14 @@ handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"SUBSCRIBE"
     case get_destination(Headers) of
         {ok, Dest} ->
             mumq_subs:add_subscription(Dest, State#state.delivery_proc),
+            handle_connection(State, Conn);
+        {error, _} ->
+            write_invalid_frame(Conn)
+    end;
+handle_frame(State = #state{conn_state = connected}, Conn, {frame, <<"UNSUBSCRIBE">>, Headers, _}) ->
+    case get_destination(Headers) of
+        {ok, Dest} ->
+            mumq_subs:del_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)

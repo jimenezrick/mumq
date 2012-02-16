@@ -15,7 +15,7 @@
          del_subscription/2,
          get_subscriptions/1]).
 
--define(ETS_OPTS, [duplicate_bag,
+-define(ETS_OPTS, [bag,
                    named_table,
                    public,
                    {read_concurrency, true}]).
