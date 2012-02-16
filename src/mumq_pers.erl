@@ -4,7 +4,10 @@
 
 -compile(export_all).
 
-
+-define(ETS_OPTS, [ordered_set,
+                   named_table,
+                   public,
+                   {read_concurrency, true}]).
 
 -record(state, {queue = queue:new(),
                 qsize = 0,
@@ -15,12 +18,10 @@
 
 
 
--define(ETS_OPTS, [ordered_set,
-                   named_table,
-                   public,
-                   {read_concurrency, true}]).
 
 %%%---------------------------------------------------------------------------------
+%%% TODO: Cuando una cola se queda vacia, arrancar un timer y destruir la cola
+%%%       si no se ha recibido ningun mensaje mas.
 %%% TODO: Crear otro modulo mumq_queue con los gen_server, que guardan los mensajes.
 %%%       Usar este modulo solo para lo mismo que mumq_subs, limpiar la ETS y
 %%%       supervisar a los mumq_queue.
