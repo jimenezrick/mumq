@@ -58,7 +58,7 @@ peername(Conn) -> Conn#conn.peer.
 
 write_frame(Socket, Frame) ->
     #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
-    Cmd = atom_to_binary(Cmd0, latin1),
+    Cmd = string:to_upper(atom_to_list(Cmd0)),
     Data = [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0],
     gen_tcpd:send(Socket, Data).
 
@@ -95,6 +95,8 @@ read_frame2(Conn) ->
 read_command(Conn) ->
     {Line, Conn2} = read_line(Conn),
     Cmd = case Line of
+        <<"CONNECT">> ->
+            connect;
         <<"SEND">> ->
             send;
         <<"SUBSCRIBE">> ->
