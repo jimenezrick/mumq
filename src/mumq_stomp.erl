@@ -1,5 +1,7 @@
 -module(mumq_stomp).
 
+-on_load(save_startup_timestamp/0).
+
 -export([create_conn/1,
          socket/1,
          peername/1,
@@ -18,7 +20,8 @@
          error_frame/2,
          add_header/3,
          add_content_length/1,
-         make_session_id/0]).
+         make_uuid/0,
+         make_uuid_base64/0]).
 
 -include("mumq.hrl").
 
@@ -30,6 +33,7 @@
                buf = []}).
 
 -define(IS_BLANK_GUARD(X), X == $ ; X == $\t; X == $\r).
+-define(HASH_RANGE, 4294967296).
 
 create_conn(Socket) ->
     {ok, Peer0} = gen_tcpd:peername(Socket),
@@ -279,5 +283,18 @@ error_frame(Msg) ->
 error_frame(Msg, Body) ->
     frame(<<"ERROR">>, [{<<"message">>, Msg}], Body).
 
-make_session_id() ->
-    io_lib:format("~B~B~B-~s", tuple_to_list(now()) ++ [node()]).
+save_startup_timestamp() ->
+    application:set_env(mumq, startup_timestamp, now()).
+
+make_uuid() ->
+    case get(startup_timestamp) of
+        undefined ->
+            {ok, Timestamp} = application:get_env(startup_timestamp),
+            put(startup_timestamp, Timestamp);
+        Timestamp ->
+            true
+    end,
+    {make_ref(), Timestamp, node()}.
+
+make_uuid_base64() ->
+    base64:encode(erlang:md5(term_to_binary(make_uuid()))).

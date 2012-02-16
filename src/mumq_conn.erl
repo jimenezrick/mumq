@@ -90,7 +90,7 @@ handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = {frame, <<
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
     case authenticate_client(Frame) of
         ok ->
-            Session = mumq_stomp:make_session_id(),
+            Session = mumq_stomp:make_uuid_base64(),
             mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:connected_frame(Session)),
             lager:info("Client ~s connected with session ~s", [mumq_stomp:peername(Conn), Session]),
             handle_connection(State#state{conn_state = connected, session = Session}, Conn);
