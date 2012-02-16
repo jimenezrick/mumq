@@ -61,7 +61,7 @@ write_frame(Socket, Frame) ->
     gen_tcpd:send(Socket, serialize_frame(Frame)).
 
 prepare_headers(Headers) ->
-    [prepare_header(H) || H <- Headers].
+    [prepare_header({Key, Val}) || {Key, Val} <- Headers, Val /= undefined].
 
 prepare_header({Key, Val}) when is_list(Key) ->
     prepare_header({list_to_binary(Key), Val});

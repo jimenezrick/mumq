@@ -12,7 +12,9 @@
 
 -export([link/0,
          add_subscription/2,
+         add_subscription/3,
          del_subscription/2,
+         del_subscription/3,
          get_subscriptions/1]).
 
 -define(ETS_OPTS, [bag,
@@ -52,29 +54,28 @@ link() ->
     put('$ancestors', [?MODULE | get('$ancestors')]).
 
 add_subscription(Queue, DeliveryProc) ->
-    ets:insert(mumq_subs, {Queue, DeliveryProc}),
-    ets:insert(mumq_subs_rev, {self(), DeliveryProc, Queue}).
+    add_subscription(Queue, undefined, DeliveryProc).
+
+add_subscription(Queue, Id, DeliveryProc) ->
+    ets:insert(mumq_subs, {Queue, Id, DeliveryProc}),
+    ets:insert(mumq_subs_rev, {self(), Queue, Id, DeliveryProc}).
 
 del_subscription(Queue, DeliveryProc) ->
-    ets:delete_object(mumq_subs, {Queue, DeliveryProc}),
-    ets:delete_object(mumq_subs_rev, {self(), DeliveryProc, Queue}).
+    del_subscription(Queue, undefined, DeliveryProc).
+
+del_subscription(Queue, Id, DeliveryProc) ->
+    ets:delete_object(mumq_subs, {Queue, Id, DeliveryProc}),
+    ets:delete_object(mumq_subs_rev, {self(), Queue, Id, DeliveryProc}).
 
 clean_subscriptions(Pid) ->
     Subs = ets:lookup(mumq_subs_rev, Pid),
     ets:delete(mumq_subs_rev, Pid),
-    lists:foreach(fun({_, D, Q}) -> ets:delete_object(mumq_subs, {Q, D}) end, Subs).
+    lists:foreach(fun({_, Q, I, D}) -> ets:delete_object(mumq_subs, {Q, I, D}) end, Subs).
 
 get_subscriptions(Queue) ->
-    Subs = [ets_lookup_element(mumq_subs, Q, 2) || Q <- gen_queue_hierarchy(Queue)],
+    Subs = [{I, D} || {_, I, D} <-
+            [ets:lookup(mumq_subs, Q) || Q <- gen_queue_hierarchy(Queue)]],
     lists:append(Subs).
-
-ets_lookup_element(Tab, Key, Pos) ->
-    try
-        ets:lookup_element(Tab, Key, Pos)
-    catch
-        error:badarg ->
-            []
-    end.
 
 gen_queue_hierarchy(Queue) ->
     [{0, _} | Matches] = binary:matches(Queue, <<$/>>),

@@ -10,9 +10,6 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: Añadir tambien id en las subscripciones.
-%%%       Actualizar mumq_subs para que contemple el id.
-%%%       El id es opcional, contemplarlo tambien en el gen_server de la cola.
 %%% TODO: Implementar los ACKS cuando este hechas las colas persistentes.
 %%%
 %%% SUBSCRIBE
@@ -73,9 +70,12 @@ authenticate_client(Headers) ->
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = send}) ->
     case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
-            Pids = mumq_subs:get_subscriptions(Dest),
+            Subs = mumq_subs:get_subscriptions(Dest),
             MsgFrame = mumq_stomp:message_frame(Frame),
-            lists:foreach(fun(P) -> P ! MsgFrame end, Pids),
+            lists:foreach(
+                fun({I, D}) ->
+                        D ! mumq_stomp:add_header(MsgFrame, <<"subscription">>, I)
+                end, Subs),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn, Frame)
@@ -83,7 +83,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = subscribe}) ->
     case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
-            mumq_subs:add_subscription(Dest, State#state.delivery_proc),
+            Id = proplists:get_value(<<"id">>, Frame#frame.headers),
+            mumq_subs:add_subscription(Dest, Id, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn, Frame)
@@ -91,7 +92,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = unsubscribe}) ->
     case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
-            mumq_subs:del_subscription(Dest, State#state.delivery_proc),
+            Id = proplists:get_value(<<"id">>, Frame#frame.headers),
+            mumq_subs:del_subscription(Dest, Id, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn, Frame)
