@@ -108,13 +108,13 @@ get_destination(Headers) ->
         undefined ->
             {error, undefined};
         <<>> ->
-            {error, invalid};
+            {error, bad_destination};
         Dest ->
             case {binary:first(Dest), binary:last(Dest), binary:match(Dest, <<"//">>)} of
                 {$/, Last, nomatch} when Last /= $/ ->
                     {ok, Dest};
                 _ ->
-                    {error, invalid}
+                    {error, bad_destination}
             end
     end.
 
