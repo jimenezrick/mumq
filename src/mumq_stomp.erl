@@ -19,6 +19,7 @@
          error_frame/2,
          add_header/3,
          add_content_length/1,
+         serialize_frame/1,
          make_uuid/0,
          make_uuid_base64/0]).
 
@@ -57,10 +58,7 @@ socket(Conn) -> Conn#conn.sock.
 peername(Conn) -> Conn#conn.peer.
 
 write_frame(Socket, Frame) ->
-    #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
-    Cmd = string:to_upper(atom_to_list(Cmd0)),
-    Data = [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0],
-    gen_tcpd:send(Socket, Data).
+    gen_tcpd:send(Socket, serialize_frame(Frame)).
 
 prepare_headers(Headers) ->
     [prepare_header(H) || H <- Headers].
@@ -139,8 +137,15 @@ read_headers(Conn, Headers) ->
             {lists:reverse(Headers), Conn2};
         {Line, Conn2} ->
             [Key, Val] = lists:map(fun strip_blanks/1, binary:split(Line, <<":">>)),
+            no_empty_binary(Key),
+            no_empty_binary(Val),
             read_headers(Conn2, [{Key, Val} | Headers])
     end.
+
+no_empty_binary(<<>>) ->
+    throw(bad_frame);
+no_empty_binary(_) ->
+    true.
 
 strip_blanks(<<H, T/binary>>) when ?IS_BLANK_GUARD(H) ->
     strip_blanks(T);
@@ -299,7 +304,13 @@ error_frame(Msg) ->
     #frame{cmd = error, headers = [{<<"message">>, Msg}]}.
 
 error_frame(Msg, Body) ->
-    #frame{cmd = error, headers = [{<<"message">>, Msg}], body = Body}.
+    add_content_length(
+        #frame{cmd = error, headers = [{<<"message">>, Msg}], body = Body}).
+
+serialize_frame(Frame) ->
+    #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
+    Cmd = string:to_upper(atom_to_list(Cmd0)),
+    [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0].
 
 save_startup_timestamp() ->
     application:set_env(mumq, startup_timestamp, now()).

@@ -10,7 +10,6 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: En write_invalid_frame/0 poder añadir el frame erroneo?
 %%% TODO: Añadir tambien id en las subscripciones.
 %%%       Actualizar mumq_subs para que contemple el id.
 %%%       El id es opcional, contemplarlo tambien en el gen_server de la cola.
@@ -79,7 +78,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
             lists:foreach(fun(P) -> P ! MsgFrame end, Pids),
             handle_connection(State, Conn);
         {error, _} ->
-            write_invalid_frame(Conn)
+            write_invalid_frame(Conn, Frame)
     end;
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = subscribe}) ->
     case validate_destination(Frame#frame.headers) of
@@ -87,7 +86,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
             mumq_subs:add_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
-            write_invalid_frame(Conn)
+            write_invalid_frame(Conn, Frame)
     end;
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = unsubscribe}) ->
     case validate_destination(Frame#frame.headers) of
@@ -95,7 +94,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
             mumq_subs:del_subscription(Dest, State#state.delivery_proc),
             handle_connection(State, Conn);
         {error, _} ->
-            write_invalid_frame(Conn)
+            write_invalid_frame(Conn, Frame)
     end;
 handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = #frame{cmd = connect}) ->
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
@@ -115,8 +114,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, #frame{cmd = disconne
     lager:info("Connection closed by ~s with session ~s",
                [mumq_stomp:peername(Conn), State#state.session]),
     gen_tcpd:close(mumq_stomp:socket(Conn));
-handle_frame(_, Conn, _) ->
-    write_invalid_frame(Conn).
+handle_frame(_, Conn, Frame) ->
+    write_invalid_frame(Conn, Frame).
 
 validate_destination(Headers) ->
     case proplists:get_value(<<"destination">>, Headers) of
@@ -156,16 +155,25 @@ handle_delivery(MonitorRef, Socket, Peer) ->
             end
     end.
 
-write_error_frame(Conn, ErrorMsg, LogMsg) ->
-    mumq_stomp:write_frame(mumq_stomp:socket(Conn), mumq_stomp:error_frame(ErrorMsg)),
+write_error_frame(Conn, ErrorMsg, ErrorBody, LogMsg) ->
+    mumq_stomp:write_frame(mumq_stomp:socket(Conn),
+                           mumq_stomp:error_frame(ErrorMsg, ErrorBody)),
     lager:info(LogMsg, [mumq_stomp:peername(Conn)]),
     gen_tcpd:close(mumq_stomp:socket(Conn)).
 
 write_invalid_frame(Conn) ->
-    write_error_frame(Conn, "invalid frame", "Invalid frame received from ~s").
+    write_invalid_frame(Conn, <<>>).
+
+write_invalid_frame(Conn, Frame) when is_record(Frame, frame) ->
+    ErrorFrame = mumq_stomp:serialize_frame(Frame),
+    ErrorBody = ["--------\n", ErrorFrame, "\n--------\n"],
+    write_invalid_frame(Conn, ErrorBody);
+write_invalid_frame(Conn, ErrorBody) ->
+    write_error_frame(Conn, "invalid frame", ErrorBody,
+                      "Invalid frame received from ~s").
 
 write_frame_too_big(Conn) ->
-    write_error_frame(Conn, "frame too big", "Frame too big received from ~s").
+    write_error_frame(Conn, "frame too big", <<>>, "Frame too big received from ~s").
 
 write_incorrect_login(Conn) ->
-    write_error_frame(Conn, "incorrect login", "Client ~s failed authentication").
+    write_error_frame(Conn, "incorrect login", <<>>, "Client ~s failed authentication").
