@@ -136,10 +136,12 @@ validate_destination(Headers) ->
     end.
 
 start_delivery_proc(Socket, Peer) ->
-    spawn_link(?MODULE, handle_delivery, [self(), Socket, Peer]).
+    proc_lib:start_link(?MODULE, handle_delivery, [self(), Socket, Peer]).
 
 handle_delivery(Parent, Socket, Peer) when is_pid(Parent) ->
-    handle_delivery(monitor(process, Parent), Socket, Peer);
+    MonitorRef = monitor(process, Parent),
+    proc_lib:init_ack(self()),
+    handle_delivery(MonitorRef, Socket, Peer);
 handle_delivery(MonitorRef, Socket, Peer) ->
     receive
         {'DOWN', MonitorRef, process, _, Reason} ->
