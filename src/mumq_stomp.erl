@@ -292,8 +292,8 @@ message_frame(#frame{cmd = send, headers = Headers, body = Body}) ->
                <<"message-id">>, make_uuid_base64()).
 
 message_frame(Dest, Body) ->
-    #frame{cmd = message, headers = [{<<"destination">>, Dest},
-                                     {<<"message-id">>, make_uuid_base64()}], body = Body}.
+    #frame{cmd = message, headers = [{<<"message-id">>, make_uuid_base64()},
+                                     {<<"destination">>, Dest}], body = Body}.
 
 error_frame(Msg) ->
     #frame{cmd = error, headers = [{<<"message">>, Msg}]}.

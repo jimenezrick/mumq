@@ -75,7 +75,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
     case validate_destination(Frame#frame.headers) of
         {ok, Dest} ->
             Pids = mumq_subs:get_subscriptions(Dest),
-            lists:foreach(fun(P) -> P ! mumq_stomp:message_frame(Frame) end, Pids),
+            MsgFrame = mumq_stomp:message_frame(Frame),
+            lists:foreach(fun(P) -> P ! MsgFrame end, Pids),
             handle_connection(State, Conn);
         {error, _} ->
             write_invalid_frame(Conn)
