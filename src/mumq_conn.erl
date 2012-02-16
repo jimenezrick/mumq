@@ -121,8 +121,6 @@ validate_destination(Headers) ->
     case proplists:get_value(<<"destination">>, Headers) of
         undefined ->
             {error, undefined};
-        <<>> ->
-            {error, bad_destination};
         Dest ->
             case
                 {binary:first(Dest), binary:last(Dest),
