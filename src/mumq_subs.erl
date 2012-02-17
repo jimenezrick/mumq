@@ -27,8 +27,7 @@ start_link() ->
 
 init(SupPid) ->
     process_flag(trap_exit, true),
-    ets:new(mumq_subs, ?ETS_OPTS),
-    ets:new(mumq_subs_rev, ?ETS_OPTS),
+    ets:new(?MODULE, ?ETS_OPTS),
     {ok, SupPid}.
 
 handle_call(_Req, _From, _State) ->
@@ -57,9 +56,9 @@ add_subscription(Queue, DeliveryProc) ->
     add_subscription(Queue, undefined, DeliveryProc).
 
 add_subscription(Queue, Id, DeliveryProc) ->
-    case ets:insert_new(mumq_subs, {Queue, Id, DeliveryProc}) of
+    case ets:insert_new(?MODULE, {Queue, Id, DeliveryProc}) of
         true ->
-            ets:insert(mumq_subs_rev, {self(), Queue, Id, DeliveryProc});
+            true = ets:insert_new(?MODULE, {self(), Queue, Id, DeliveryProc});
         false ->
             false
     end.
@@ -68,22 +67,22 @@ del_subscription(Queue, DeliveryProc) ->
     del_subscription(Queue, undefined, DeliveryProc).
 
 del_subscription(Queue, Id, DeliveryProc) ->
-    case ets:match_object(mumq_subs, {Queue, Id, DeliveryProc}) of
+    case ets:match_object(?MODULE, {Queue, Id, DeliveryProc}) of
         [_] ->
-            ets:delete_object(mumq_subs, {Queue, Id, DeliveryProc}),
-            ets:delete_object(mumq_subs_rev, {self(), Queue, Id, DeliveryProc});
+            ets:delete_object(?MODULE, {Queue, Id, DeliveryProc}),
+            ets:delete_object(?MODULE, {self(), Queue, Id, DeliveryProc});
         [] ->
             false
     end.
 
-clean_subscriptions(Pid) ->
-    Subs = ets:lookup(mumq_subs_rev, Pid),
-    ets:delete(mumq_subs_rev, Pid),
-    lists:foreach(fun({_, Q, I, D}) -> ets:delete_object(mumq_subs, {Q, I, D}) end, Subs).
-
 get_subscriptions(Queue) ->
-    Subs = [ets:lookup(mumq_subs, Q) || Q <- gen_queue_hierarchy(Queue)],
+    Subs = [ets:lookup(?MODULE, Q) || Q <- gen_queue_hierarchy(Queue)],
     [{I, D} || {_, I, D} <- lists:append(Subs)].
+
+clean_subscriptions(Pid) ->
+    Subs = ets:lookup(?MODULE, Pid),
+    ets:delete(?MODULE, Pid),
+    lists:foreach(fun({_, Q, I, D}) -> ets:delete_object(?MODULE, {Q, I, D}) end, Subs).
 
 gen_queue_hierarchy(Queue) ->
     [{0, _} | Matches] = binary:matches(Queue, <<$/>>),
