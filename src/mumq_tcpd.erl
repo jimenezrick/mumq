@@ -2,8 +2,9 @@
 
 -behaviour(gen_tcpd).
 
--export([start_link/3,
-         init/1,
+-export([start_link/3]).
+
+-export([init/1,
          handle_connection/2,
          handle_info/2,
          terminate/2]).
