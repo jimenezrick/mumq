@@ -65,8 +65,6 @@ prepare_headers(Headers) ->
 
 prepare_header({Key, Val}) when is_list(Key) ->
     prepare_header({list_to_binary(Key), Val});
-prepare_header({Key, Val}) when is_list(Val) ->
-    prepare_header({Key, list_to_binary(Val)});
 prepare_header({<<"content-length">>, Len}) when is_integer(Len) ->
     prepare_header({<<"content-length">>, integer_to_list(Len)});
 prepare_header({Key, Val}) ->
@@ -271,8 +269,9 @@ read_buffer(Conn, _) ->
     Conn#conn.buf.
 
 log_frame(Frame, Peer) ->
+    Cmd = string:to_upper(atom_to_list(Frame#frame.cmd)),
     lager:debug("Frame received from ~s~n\tCmd = ~s~n\tHeaders = ~p~n\tBody = ~p",
-                [Peer, Frame#frame.cmd, Frame#frame.headers, Frame#frame.body]).
+                [Peer, Cmd, Frame#frame.headers, Frame#frame.body]).
 
 add_header(Frame, Key, Val) ->
     Frame#frame{headers = [{Key, Val} | Frame#frame.headers]}.

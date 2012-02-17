@@ -57,15 +57,24 @@ add_subscription(Queue, DeliveryProc) ->
     add_subscription(Queue, undefined, DeliveryProc).
 
 add_subscription(Queue, Id, DeliveryProc) ->
-    ets:insert(mumq_subs, {Queue, Id, DeliveryProc}),
-    ets:insert(mumq_subs_rev, {self(), Queue, Id, DeliveryProc}).
+    case ets:insert_new(mumq_subs, {Queue, Id, DeliveryProc}) of
+        true ->
+            ets:insert(mumq_subs_rev, {self(), Queue, Id, DeliveryProc});
+        false ->
+            false
+    end.
 
 del_subscription(Queue, DeliveryProc) ->
     del_subscription(Queue, undefined, DeliveryProc).
 
 del_subscription(Queue, Id, DeliveryProc) ->
-    ets:delete_object(mumq_subs, {Queue, Id, DeliveryProc}),
-    ets:delete_object(mumq_subs_rev, {self(), Queue, Id, DeliveryProc}).
+    case ets:match_object(mumq_subs, {Queue, Id, DeliveryProc}) of
+        [_] ->
+            ets:delete_object(mumq_subs, {Queue, Id, DeliveryProc}),
+            ets:delete_object(mumq_subs_rev, {self(), Queue, Id, DeliveryProc});
+        [] ->
+            false
+    end.
 
 clean_subscriptions(Pid) ->
     Subs = ets:lookup(mumq_subs_rev, Pid),
