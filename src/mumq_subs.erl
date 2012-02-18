@@ -56,10 +56,11 @@ add_subscription(Queue, DeliveryProc) ->
     add_subscription(Queue, undefined, DeliveryProc).
 
 add_subscription(Queue, Id, DeliveryProc) ->
-    case ets:insert_new(?MODULE, {Queue, Id, DeliveryProc}) of
-        true ->
-            true = ets:insert_new(?MODULE, {self(), Queue, Id, DeliveryProc});
-        false ->
+    case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
+        [] ->
+            ets:insert(?MODULE, {Queue, Id, DeliveryProc}),
+            ets:insert(?MODULE, {self(), Queue, Id, DeliveryProc});
+        [_] ->
             false
     end.
 
@@ -67,7 +68,7 @@ del_subscription(Queue, DeliveryProc) ->
     del_subscription(Queue, undefined, DeliveryProc).
 
 del_subscription(Queue, Id, DeliveryProc) ->
-    case ets:match_object(?MODULE, {Queue, Id, DeliveryProc}) of
+    case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
         [_] ->
             ets:delete_object(?MODULE, {Queue, Id, DeliveryProc}),
             ets:delete_object(?MODULE, {self(), Queue, Id, DeliveryProc});
