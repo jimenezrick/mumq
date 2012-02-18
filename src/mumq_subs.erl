@@ -11,9 +11,7 @@
 
 -export([start_link/0,
          link/0,
-         add_subscription/2,
          add_subscription/3,
-         del_subscription/2,
          del_subscription/3,
          get_subscriptions/1]).
 
@@ -52,9 +50,6 @@ link() ->
     link(whereis(?MODULE)),
     put('$ancestors', [?MODULE | get('$ancestors')]).
 
-add_subscription(Queue, DeliveryProc) ->
-    add_subscription(Queue, undefined, DeliveryProc).
-
 add_subscription(Queue, Id, DeliveryProc) ->
     case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
         [] ->
@@ -63,9 +58,6 @@ add_subscription(Queue, Id, DeliveryProc) ->
         [_] ->
             false
     end.
-
-del_subscription(Queue, DeliveryProc) ->
-    del_subscription(Queue, undefined, DeliveryProc).
 
 del_subscription(Queue, Id, DeliveryProc) ->
     case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
