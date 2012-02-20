@@ -24,10 +24,9 @@
                 msg_seqs = gb_trees:empty(),
                 sub_seqs = gb_trees:empty()}).
 
-%%%--------------------------------------------------------------------------
-%%% TODO: Implementar el borrado pasado 1 dia de las subscripciones no usadas
-%%% TODO: Modificar send_unread_messages/2 para que solo envie los necesarios
-%%%--------------------------------------------------------------------------
+%%%-----------------------------------------------------------------------------
+%%% TODO: purge_subscribers()
+%%%-----------------------------------------------------------------------------
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -45,12 +44,29 @@ send_unread_messages(To, SubId) ->
     gen_server:cast(?MODULE, {send_unread, To, SubId}).
 
 init(_Args) ->
+    case application:get_env(max_queue_inactivity) of
+        undefined ->
+            MaxQueueInactivity = ?MAX_QUEUE_INACTIVITY;
+        {ok, MaxQueueInactivity} ->
+            true
+    end,
+    case application:get_env(subscribers_purge_interval) of
+        undefined ->
+            SubscribersPurgeInterval = ?SUBSCRIBERS_PURGE_INTERVAL;
+        {ok, SubscribersPurgeInterval} ->
+            true
+    end,
     case application:get_env(max_queue_size) of
         undefined ->
-            {ok, #state{max_qsize = ?MAX_QUEUE_SIZE}};
-        {ok, Max} ->
-            {ok, #state{max_qsize = Max}}
-    end.
+            MaxQueueSize = ?MAX_QUEUE_SIZE;
+        {ok, MaxQueueSize} ->
+            true
+    end,
+    erlang:send_after(MaxQueueInactivity, self(),
+                      {max_queue_inactivity, MaxQueueInactivity, 0}),
+    erlang:send_after(SubscribersPurgeInterval, self(),
+                      {subscribers_purge_interval, SubscribersPurgeInterval}),
+    {ok, #state{max_qsize = MaxQueueSize}}.
 
 handle_call(_Req, _From, _State) ->
     exit(not_implemented).
@@ -96,14 +112,34 @@ handle_cast({subscribe, SubId}, State) ->
     SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
     {noreply, State#state{sub_seqs = SubSeqs}};
 handle_cast({send_unread, To, SubId}, State) ->
-    queue_foreach(
-        fun({_, M}) ->
+    case gb_trees:lookup(SubId, State#state.sub_seqs) of
+        {value, AckSeq} ->
+            true;
+        none ->
+            case queue_foreach:peek(State#state.queue) of
+                {value, {Seq, _}} ->
+                    AckSeq = Seq;
+                empty ->
+                    AckSeq = 0
+            end
+    end,
+    queue_map_from(
+        fun(M) ->
                 To ! mumq_stomp:add_header(M, <<"subscription">>, SubId)
-        end, State#state.queue),
+        end, State#state.queue, AckSeq),
     {noreply, State}.
 
-handle_info(_Info, _State) ->
-    exit(not_implemented).
+handle_info({max_queue_inactivity, _, PrevSeq}, State = #state{next_seq = PrevSeq}) ->
+    {stop, normal, State};
+handle_info({max_queue_inactivity, T, _}, State) ->
+    erlang:send_after(T, self(), {max_queue_inactivity, T, State#state.next_seq}),
+    {noreply, State};
+handle_info({subscribers_purge_interval, T}, State) ->
+    %
+    % TODO: purge_subscribers()
+    %
+    erlang:send_after(T, self(), {subscribers_purge_interval, T}),
+    {noreply, State}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -111,11 +147,13 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, _State, _Extra) ->
     exit(not_implemented).
 
-queue_foreach(Fun, Queue) ->
+queue_map_from(Fun, Queue, Seq) ->
     case queue:out(Queue) of
-        {{value, Item}, Queue2} ->
-            Fun(Item),
-            queue_foreach(Fun, Queue2);
+        {{value, {Seq2, _}}, Queue2} when Seq2 < Seq ->
+            queue_map_from(Fun, Queue2, Seq);
+        {{value, {_, Msg}}, Queue2} ->
+            Fun(Msg),
+            queue_map_from(Fun, Queue2, Seq);
         {empty, _} ->
             ok
     end.
