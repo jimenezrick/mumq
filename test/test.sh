@@ -1,11 +1,13 @@
 #!/bin/sh
 
-PORT=61613
-
-if [ $# != 1 ]
+if [ $# = 0 ]
 then
-	echo "Usage: $0 <frames>" >&2
+	echo "Usage: $0 <frames> [<arg1> [<arg2>]]" >&2
 	exit 1
 fi
 
-nc localhost $PORT <$1
+PORT=61613
+FILE=$1
+
+shift
+cat $FILE | sed "s/\$1/$1/" | sed "s/\$2/$2/" | nc localhost $PORT
