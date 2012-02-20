@@ -13,11 +13,18 @@
          terminate/2,
          code_change/3]).
 
--record(state, {queue = queue:new(),
+-include("mumq.hrl").
+
+-record(state, {max_qsize,
                 qsize = 0,
-                max_qsize = 1000, % XXX: Customizable
+                queue = queue:new(),
                 next_seq = 0,
-                subscriptions = gb_trees:empty()}).
+                msg_seqs = gb_trees:empty(),
+                sub_acks = gb_trees:empty()}).
+
+%%%--------------------------------------------------------------------------
+%%% TODO: Implementar el borrado pasado 1 dia de las subscripciones no usadas
+%%%--------------------------------------------------------------------------
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -31,19 +38,33 @@ send_unread_messages(To, _Queue, SubId) ->
     gen_server:cast(?MODULE, {send_unread, To, SubId}).
 
 init(_Args) ->
-    {ok, #state{}}.
+    case application:get_env(max_queue_size) of
+        undefined ->
+            {ok, #state{max_qsize = ?MAX_QUEUE_SIZE}};
+        {ok, Max} ->
+            {ok, #state{max_qsize = Max}}
+    end.
 
 handle_call(_Req, _From, _State) ->
     exit(not_implemented).
 
-handle_cast({enqueue, Msg}, State = #state{qsize = N, max_qsize = N}) ->
-    Seq = State#state.next_seq,
-    Queue = queue:in({Seq, Msg}, queue:drop(State#state.queue)),
-    {noreply, State#state{queue = Queue, next_seq = Seq + 1}};
-handle_cast({enqueue, Msg}, State = #state{qsize = N}) ->
+handle_cast({enqueue, Msg}, State) ->
+    Size = State#state.qsize,
     Seq = State#state.next_seq,
     Queue = queue:in({Seq, Msg}, State#state.queue),
-    {noreply, State#state{queue = Queue, qsize = N + 1, next_seq = Seq + 1}};
+    MsgId = mumq_stomp:get_header(Msg, <<"message-id">>),
+    MsgSeqs = gb_trees:insert(MsgId, Seq, State#state.msg_seqs),
+    if
+        State#state.qsize == State#state.max_qsize ->
+            {{value, MsgDrop}, Queue2} = queue:out(Queue),
+            MsgIdDrop = mumq_stomp:get_header(MsgDrop, <<"message-id">>),
+            MsgSeqs2 = gb_trees:delete(MsgIdDrop, MsgSeqs);
+        true ->
+            Queue2 = Queue,
+            MsgSeqs2 = MsgSeqs
+    end,
+    {noreply, State#state{qsize = Size + 1, queue = Queue2,
+                          next_seq = Seq + 1, msg_seqs = MsgSeqs2}};
 handle_cast({send_unread, To, SubId}, State) ->
     queue_foreach(
         fun({_, M}) ->

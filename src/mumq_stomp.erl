@@ -19,6 +19,7 @@
          error_frame/2,
          add_header/3,
          add_content_length/1,
+         get_header/2,
          serialize_frame/1,
          make_uuid/0,
          make_uuid_base64/0]).
@@ -305,6 +306,11 @@ error_frame(Msg) ->
 error_frame(Msg, Body) ->
     add_content_length(
         #frame{cmd = error, headers = [{<<"message">>, Msg}], body = Body}).
+
+get_header(Frame, Key) when is_list(Key) ->
+    get_header(Frame, list_to_binary(Key));
+get_header(Frame, Key) ->
+    proplists:get_value(Key, Frame#frame.headers).
 
 serialize_frame(Frame) ->
     #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,

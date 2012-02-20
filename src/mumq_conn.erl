@@ -43,23 +43,20 @@ handle_connection(State, Conn) ->
             lager:info("Connection error with ~s", [mumq_stomp:peername(Conn)])
     end.
 
-authenticate_client(Headers) ->
+authenticate_client(Login, Passcode) ->
     case application:get_env(allow_users) of
         undefined ->
             ok;
         {ok, UsersList} ->
-            case
-                {proplists:get_value(<<"login">>, Headers),
-                 proplists:get_value(<<"passcode">>, Headers)}
-            of
+            case {Login, Passcode} of
                 {A, B} when A == undefined; B == undefined ->
                     {error, incorrect_login};
-                {User, Pass} ->
-                    Pass2 = binary_to_list(Pass),
-                    case proplists:get_value(binary_to_list(User), UsersList) of
+                _ ->
+                    Passcode2 = binary_to_list(Passcode),
+                    case proplists:get_value(binary_to_list(Login), UsersList) of
                         undefined ->
                             {error, incorrect_login};
-                        Pass2 ->
+                        Passcode2 ->
                             ok;
                         _ ->
                             {error, incorrect_login}
@@ -68,7 +65,7 @@ authenticate_client(Headers) ->
     end.
 
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = send}) ->
-    case validate_destination(Frame#frame.headers) of
+    case validate_destination(Frame) of
         {ok, Dest} ->
             Subs = mumq_subs:get_subscriptions(Dest),
             MsgFrame = mumq_stomp:message_frame(Frame),
@@ -76,17 +73,18 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
                 fun({I, D}) ->
                         D ! mumq_stomp:add_header(MsgFrame, <<"subscription">>, I)
                 end, Subs),
+            mumq_queue:enqueue_message(Dest, MsgFrame),
             handle_connection(State, Conn);
         {error, _} ->
             close_with_invalid_frame(Conn, Frame)
     end;
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = subscribe}) ->
-    case validate_destination(Frame#frame.headers) of
+    case validate_destination(Frame) of
         {ok, Dest} ->
-            Id = proplists:get_value(<<"id">>, Frame#frame.headers),
+            Id = mumq_stomp:get_header(Frame, <<"id">>),
             case mumq_subs:add_subscription(Dest, Id, State#state.delivery_proc) of
                 true ->
-                    true;
+                    mumq_queue:send_unread_messages(State#state.delivery_proc, Dest, Id);
                 false ->
                     write_already_subscribed(Conn, Dest)
             end,
@@ -95,9 +93,9 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
             close_with_invalid_frame(Conn, Frame)
     end;
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = unsubscribe}) ->
-    case validate_destination(Frame#frame.headers) of
+    case validate_destination(Frame) of
         {ok, Dest} ->
-            Id = proplists:get_value(<<"id">>, Frame#frame.headers),
+            Id = mumq_stomp:get_header(Frame, <<"id">>),
             case mumq_subs:del_subscription(Dest, Id, State#state.delivery_proc) of
                 true ->
                     true;
@@ -110,7 +108,9 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
     end;
 handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = #frame{cmd = connect}) ->
     lager:info("New client from ~s", [mumq_stomp:peername(Conn)]),
-    case authenticate_client(Frame#frame.headers) of
+    Login = mumq_stomp:get_header(Frame, <<"login">>),
+    Passcode = mumq_stomp:get_header(Frame, <<"passcode">>),
+    case authenticate_client(Login, Passcode) of
         ok ->
             Session = mumq_stomp:make_uuid_base64(),
             mumq_stomp:write_frame(mumq_stomp:socket(Conn),
@@ -129,8 +129,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, #frame{cmd = disconne
 handle_frame(_, Conn, Frame) ->
     close_with_invalid_frame(Conn, Frame).
 
-validate_destination(Headers) ->
-    case proplists:get_value(<<"destination">>, Headers) of
+validate_destination(Frame) ->
+    case mumq_stomp:get_header(Frame, <<"destination">>) of
         undefined ->
             {error, undefined};
         Dest ->
