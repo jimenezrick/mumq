@@ -3,8 +3,10 @@
 -behaviour(gen_server).
 
 -export([start_link/0,
-         enqueue_message/2,
-         send_unread_messages/3]).
+         subscribe/1,
+         enqueue/1,
+         acknowledge/2,
+         send_unread_messages/2]).
 
 -export([init/1,
          handle_call/3,
@@ -20,21 +22,26 @@
                 queue = queue:new(),
                 next_seq = 0,
                 msg_seqs = gb_trees:empty(),
-                sub_acks = gb_trees:empty()}).
+                sub_seqs = gb_trees:empty()}).
 
 %%%--------------------------------------------------------------------------
 %%% TODO: Implementar el borrado pasado 1 dia de las subscripciones no usadas
+%%% TODO: Modificar send_unread_messages/2 para que solo envie los necesarios
 %%%--------------------------------------------------------------------------
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-enqueue_message(_Queue, Msg) ->
+subscribe(SubId) ->
+    gen_server:cast(?MODULE, {subscribe, SubId}).
+
+enqueue(Msg) ->
     gen_server:cast(?MODULE, {enqueue, Msg}).
 
-send_unread_messages(_, _, undefined) ->
-    ok;
-send_unread_messages(To, _Queue, SubId) ->
+acknowledge(SubId, MsgId) ->
+    gen_server:cast(?MODULE, {acknowledge, SubId, MsgId}).
+
+send_unread_messages(To, SubId) ->
     gen_server:cast(?MODULE, {send_unread, To, SubId}).
 
 init(_Args) ->
@@ -65,6 +72,29 @@ handle_cast({enqueue, Msg}, State) ->
     end,
     {noreply, State#state{qsize = Size + 1, queue = Queue2,
                           next_seq = Seq + 1, msg_seqs = MsgSeqs2}};
+handle_cast({acknowledge, SubId, MsgId}, State) ->
+    case gb_trees:lookup(MsgId, State#state.msg_seqs) of
+        {value, Seq} ->
+            AckSeq = Seq + 1;
+        none ->
+            case queue:peek(State#state.queue) of
+                {value, {Seq, _}} ->
+                    AckSeq = Seq;
+                empty ->
+                    AckSeq = 0
+            end
+    end,
+    SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
+    {noreply, State#state{sub_seqs = SubSeqs}};
+handle_cast({subscribe, SubId}, State) ->
+    case queue:peek(State#state.queue) of
+        {value, {Seq, _}} ->
+            AckSeq = Seq;
+        empty ->
+            AckSeq = 0
+    end,
+    SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
+    {noreply, State#state{sub_seqs = SubSeqs}};
 handle_cast({send_unread, To, SubId}, State) ->
     queue_foreach(
         fun({_, M}) ->
