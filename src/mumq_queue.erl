@@ -24,10 +24,6 @@
                 msg_seqs = gb_trees:empty(),
                 sub_seqs = gb_trees:empty()}).
 
-%%%-----------------------------------------------------------------------------
-%%% TODO: purge_subscribers()
-%%%-----------------------------------------------------------------------------
-
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
@@ -116,7 +112,7 @@ handle_cast({send_unread, To, SubId}, State) ->
         {value, AckSeq} ->
             true;
         none ->
-            case queue_foreach:peek(State#state.queue) of
+            case queue:peek(State#state.queue) of
                 {value, {Seq, _}} ->
                     AckSeq = Seq;
                 empty ->
@@ -135,11 +131,9 @@ handle_info({max_queue_inactivity, T, _}, State) ->
     erlang:send_after(T, self(), {max_queue_inactivity, T, State#state.next_seq}),
     {noreply, State};
 handle_info({subscribers_purge_interval, T}, State) ->
-    %
-    % TODO: purge_subscribers()
-    %
+    State2 = purge_subscribers(State),
     erlang:send_after(T, self(), {subscribers_purge_interval, T}),
-    {noreply, State}.
+    {noreply, State2}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -156,4 +150,25 @@ queue_map_from(Fun, Queue, Seq) ->
             queue_map_from(Fun, Queue2, Seq);
         {empty, _} ->
             ok
+    end.
+
+purge_subscribers(State) ->
+    case queue:peek(State#state.queue) of
+        {value, {Seq, _}} ->
+            SubSeqs = State#state.sub_seqs,
+            SubSeqs2 = purge_subscribers(Seq, gb_trees:iterator(SubSeqs), SubSeqs),
+            State#state{sub_seqs = SubSeqs2};
+        empty ->
+            State#state{sub_seqs = gb_trees:empty()}
+    end.
+
+purge_subscribers(FirstSeq, IterSubSeqs, SubSeqs) ->
+    case gb_trees:next(IterSubSeqs) of
+        {SubId, AckSeq, IterSubSeqs2} when AckSeq < FirstSeq ->
+            SubSeqs2 = gb_trees:delete(SubId, SubSeqs),
+            purge_subscribers(FirstSeq, IterSubSeqs2, SubSeqs2);
+        {_, _, IterSubSeqs2} ->
+            purge_subscribers(FirstSeq, IterSubSeqs2, SubSeqs);
+        none ->
+            SubSeqs
     end.

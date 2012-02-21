@@ -6,6 +6,8 @@
              mumq,
              mumq_app,
              mumq_conn,
+             mumq_pers,
+             mumq_queue,
              mumq_stomp,
              mumq_subs,
              mumq_sup,
@@ -14,6 +16,7 @@
   {registered, [
                 mumq_sup,
                 mumq_subs,
+                mumq_pers,
                 mumq_tcpd,
                 mumq_ssld
                ]},
