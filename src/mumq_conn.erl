@@ -10,10 +10,6 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%%
-%%% TODO: Los procesos hijos que s enganchan al mumq_subs, no se mueren? Comprobar
-%%%       y engancharlos a un supervisor especifico?
-%%%
 %%% TODO: Implementar los ACKs cuando este hechas las colas persistentes.
 %%%
 %%% SUBSCRIBE

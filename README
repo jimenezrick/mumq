@@ -1,8 +1,26 @@
   μMQ
 =======
 
-Very simple, small and fast STOMP 1.0 message broker with in-memory
+Very simple, small and fast STOMP message broker with in-memory
 persistence written in Erlang.
+
+μMQ supports a subset of STOMP 1.0: no transaction support, nor receipt
+header and the acknowledge method is always `auto'.
+
+The persistence works subscribing to any queue using the `id' header, if
+the session is broken for any reason, the client can reconnect and
+subscribe to the same queue using the previous `id' and it will received
+the messages that were sent to the queue while he was not connected.
+
+The queue names must have the format of an absolute UNIX path, like this:
+
+        /foo
+        /foo/bar
+        /...
+
+Any subscription will always suppose an implicit subscription to any
+other existing queue with the same name prefix (i.e., specifying /foo,
+you will be also subscribed to /foo/bar, /foo/bar/bur and so on).
 
 
  Install
@@ -28,3 +46,9 @@ your desired destination and use the next helper script to control it:
 
 NOTE: the release handling seems to be broken in R15B, so better use any
       R14 release for creating the target system.
+
+
+ License
+---------
+
+This software is published under MIT license.

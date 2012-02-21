@@ -1,4 +1,3 @@
-- Support more features from the STOMP 1.0/1.1 protocol.
 - Add bridge mode between several brokers.
 - Add automatic detection/connection of neighborhood brokers.
 - Make some simple benchmark.
