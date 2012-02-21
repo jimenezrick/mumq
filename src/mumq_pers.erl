@@ -7,7 +7,7 @@
          send_unread_messages/3]).
 
 %%%-----------------------------------------------------------------------------
-%%% XXX: Fake API
+%%% XXX: Fake API, actualizar mumq.app.src!
 %%%-----------------------------------------------------------------------------
 
 enqueue(_Queue, Msg) ->
@@ -16,5 +16,5 @@ enqueue(_Queue, Msg) ->
 acknowledge(_Queue, SubId, MsgId) ->
     mumq_queue:acknowledge(SubId, MsgId).
 
-send_unread_messages(_Queue, To, SubId) ->
-    mumq_queue:send_unread_messages(To, SubId).
+send_unread_messages(_Queue, SubId, To) ->
+    mumq_queue:send_unread_messages(SubId, To).

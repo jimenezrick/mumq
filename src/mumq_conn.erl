@@ -10,7 +10,10 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%% TODO: Terminar de implentar aqui la parte de la gestion de la cola.
+%%%
+%%% TODO: Los procesos hijos que s enganchan al mumq_subs, no se mueren? Comprobar
+%%%       y engancharlos a un supervisor especifico?
+%%%
 %%% TODO: Implementar los ACKs cuando este hechas las colas persistentes.
 %%%
 %%% SUBSCRIBE
@@ -74,7 +77,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
                 fun({I, D}) ->
                         D ! mumq_stomp:add_header(MsgFrame, <<"subscription">>, I)
                 end, Subs),
-            mumq_queue:enqueue_message(Dest, MsgFrame),
+            mumq_pers:enqueue(Dest, MsgFrame),
             handle_connection(State, Conn);
         {error, _} ->
             close_with_invalid_frame(Conn, Frame)
@@ -82,10 +85,10 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = subscribe}) ->
     case validate_destination(Frame) of
         {ok, Dest} ->
-            Id = mumq_stomp:get_header(Frame, <<"id">>),
-            case mumq_subs:add_subscription(Dest, Id, State#state.delivery_proc) of
+            SubId = mumq_stomp:get_header(Frame, <<"id">>),
+            case mumq_subs:add_subscription(Dest, SubId, State#state.delivery_proc) of
                 true ->
-                    mumq_queue:send_unread_messages(State#state.delivery_proc, Dest, Id);
+                    mumq_pers:send_unread_messages(Dest, SubId, State#state.delivery_proc);
                 false ->
                     write_already_subscribed(Conn, Dest)
             end,
@@ -96,8 +99,8 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = unsubscribe}) ->
     case validate_destination(Frame) of
         {ok, Dest} ->
-            Id = mumq_stomp:get_header(Frame, <<"id">>),
-            case mumq_subs:del_subscription(Dest, Id, State#state.delivery_proc) of
+            SubId = mumq_stomp:get_header(Frame, <<"id">>),
+            case mumq_subs:del_subscription(Dest, SubId, State#state.delivery_proc) of
                 true ->
                     true;
                 false ->

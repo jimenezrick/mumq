@@ -34,8 +34,8 @@ enqueue(Msg) ->
 acknowledge(SubId, MsgId) ->
     gen_server:cast(?MODULE, {acknowledge, SubId, MsgId}).
 
-send_unread_messages(To, SubId) ->
-    gen_server:cast(?MODULE, {send_unread, To, SubId}).
+send_unread_messages(SubId, To) ->
+    gen_server:cast(?MODULE, {send_unread, SubId, To}).
 
 init(_Args) ->
     case application:get_env(max_queue_inactivity) of
@@ -97,7 +97,7 @@ handle_cast({acknowledge, SubId, MsgId}, State) ->
     end,
     SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
     {noreply, State#state{sub_seqs = SubSeqs}};
-handle_cast({send_unread, To, SubId}, State) ->
+handle_cast({send_unread, SubId, To}, State) ->
     case gb_trees:lookup(SubId, State#state.sub_seqs) of
         {value, AckSeq} ->
             true;
