@@ -9,16 +9,6 @@
                 delivery_proc,
                 session}).
 
-%%%-----------------------------------------------------------------------------
-%%% TODO: Implementar los ACKs cuando este hechas las colas persistentes.
-%%%
-%%% SUBSCRIBE
-%%% destination: /queue/foo
-%%% ack: client/auto <----------------------------------- TODO!!!
-%%%
-%%% ^@
-%%%-----------------------------------------------------------------------------
-
 handle_connection(Socket) ->
     Conn = mumq_stomp:create_conn(Socket),
     Pid = start_delivery_proc(Socket, mumq_stomp:peername(Conn)),
@@ -73,7 +63,7 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
                 fun({I, D}) ->
                         D ! mumq_stomp:add_header(MsgFrame, <<"subscription">>, I)
                 end, Subs),
-            mumq_pers:enqueue(Dest, MsgFrame),
+            mumq_pers:enqueue_message(Dest, MsgFrame),
             handle_connection(State, Conn);
         {error, _} ->
             close_with_invalid_frame(Conn, Frame)
@@ -159,12 +149,23 @@ handle_delivery(MonitorRef, Socket, Peer) ->
         Frame ->
             case mumq_stomp:write_frame(Socket, Frame) of
                 ok ->
+                    handle_acknowledge(Frame),
                     lager:debug("Message delivered to ~s", [Peer]),
                     handle_delivery(MonitorRef, Socket, Peer);
                 {error, Reason} ->
                     lager:debug("Couldn't deliver message to ~s", [Peer]),
                     exit(Reason)
             end
+    end.
+
+handle_acknowledge(Frame) ->
+    case mumq_stomp:get_header(Frame, <<"subscription">>) of
+        undefined ->
+            ok;
+        SubId ->
+            MsgId = mumq_stomp:get_header(Frame, <<"message-id">>),
+            Dest = mumq_stomp:get_header(Frame, <<"destination">>),
+            mumq_pers:acknowledge_message(Dest, SubId, MsgId)
     end.
 
 write_error_frame(Conn, ErrorMsg, LogMsg) ->

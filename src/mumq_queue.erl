@@ -3,8 +3,8 @@
 -behaviour(gen_server).
 
 -export([start_link/0,
-         enqueue/1,
-         acknowledge/2,
+         enqueue_message/1,
+         acknowledge_message/2,
          send_unread_messages/2]).
 
 -export([init/1,
@@ -28,10 +28,10 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
     % XXX
 
-enqueue(Msg) ->
+enqueue_message(Msg) ->
     gen_server:cast(?MODULE, {enqueue, Msg}).
 
-acknowledge(SubId, MsgId) ->
+acknowledge_message(SubId, MsgId) ->
     gen_server:cast(?MODULE, {acknowledge, SubId, MsgId}).
 
 send_unread_messages(SubId, To) ->
