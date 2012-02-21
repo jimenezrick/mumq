@@ -25,7 +25,9 @@
                 sub_seqs = gb_trees:empty()}).
 
 start_link() ->
+    % XXX
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    % XXX
 
 subscribe(SubId) ->
     gen_server:cast(?MODULE, {subscribe, SubId}).
@@ -42,15 +44,15 @@ send_unread_messages(To, SubId) ->
 init(_Args) ->
     case application:get_env(max_queue_inactivity) of
         undefined ->
-            MaxQueueInactivity = ?MAX_QUEUE_INACTIVITY;
-        {ok, MaxQueueInactivity} ->
-            true
+            MaxQueueInactivity = timer:minutes(?MAX_QUEUE_INACTIVITY);
+        {ok, MaxQueueInactivity0} ->
+            MaxQueueInactivity = timer:minutes(MaxQueueInactivity0)
     end,
     case application:get_env(subscribers_purge_interval) of
         undefined ->
-            SubscribersPurgeInterval = ?SUBSCRIBERS_PURGE_INTERVAL;
-        {ok, SubscribersPurgeInterval} ->
-            true
+            SubscribersPurgeInterval = timer:minutes(?SUBSCRIBERS_PURGE_INTERVAL);
+        {ok, SubscribersPurgeInterval0} ->
+            SubscribersPurgeInterval = timer:minutes(SubscribersPurgeInterval0)
     end,
     case application:get_env(max_queue_size) of
         undefined ->
@@ -68,21 +70,22 @@ handle_call(_Req, _From, _State) ->
     exit(not_implemented).
 
 handle_cast({enqueue, Msg}, State) ->
-    Size = State#state.qsize,
     Seq = State#state.next_seq,
     Queue = queue:in({Seq, Msg}, State#state.queue),
     MsgId = mumq_stomp:get_header(Msg, <<"message-id">>),
     MsgSeqs = gb_trees:insert(MsgId, Seq, State#state.msg_seqs),
     if
         State#state.qsize == State#state.max_qsize ->
+            Size = State#state.qsize,
             {{value, MsgDrop}, Queue2} = queue:out(Queue),
             MsgIdDrop = mumq_stomp:get_header(MsgDrop, <<"message-id">>),
             MsgSeqs2 = gb_trees:delete(MsgIdDrop, MsgSeqs);
         true ->
+            Size = State#state.qsize + 1,
             Queue2 = Queue,
             MsgSeqs2 = MsgSeqs
     end,
-    {noreply, State#state{qsize = Size + 1, queue = Queue2,
+    {noreply, State#state{qsize = Size, queue = Queue2,
                           next_seq = Seq + 1, msg_seqs = MsgSeqs2}};
 handle_cast({acknowledge, SubId, MsgId}, State) ->
     case gb_trees:lookup(MsgId, State#state.msg_seqs) of

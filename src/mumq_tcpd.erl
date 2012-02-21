@@ -27,12 +27,12 @@ start_link(Name, Type, Port) ->
 init(_Args) ->
     {ok, none}.
 
-handle_connection(Socket, none) ->
+handle_connection(Socket, _State) ->
     mumq_subs:link(),
     mumq_conn:handle_connection(Socket).
 
 handle_info(_Info, _State) ->
-    noreply.
+    exit(not_implemented).
 
 terminate(_Reason, _State) ->
     ok.

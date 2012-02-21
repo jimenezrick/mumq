@@ -10,9 +10,6 @@
                 session}).
 
 %%%-----------------------------------------------------------------------------
-%%%
-%%% TODO: Revisar el codigo de mumq_queue!!!
-%%%
 %%% TODO: Terminar de implentar aqui la parte de la gestion de la cola.
 %%% TODO: Arreglar para el caso de cuando se destruye una cola por inactividad
 %%%       pero todavia tiene clientes suscritos.
