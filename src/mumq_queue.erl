@@ -3,7 +3,6 @@
 -behaviour(gen_server).
 
 -export([start_link/0,
-         subscribe/1,
          enqueue/1,
          acknowledge/2,
          send_unread_messages/2]).
@@ -28,9 +27,6 @@ start_link() ->
     % XXX
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
     % XXX
-
-subscribe(SubId) ->
-    gen_server:cast(?MODULE, {subscribe, SubId}).
 
 enqueue(Msg) ->
     gen_server:cast(?MODULE, {enqueue, Msg}).
@@ -98,15 +94,6 @@ handle_cast({acknowledge, SubId, MsgId}, State) ->
                 empty ->
                     AckSeq = 0
             end
-    end,
-    SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
-    {noreply, State#state{sub_seqs = SubSeqs}};
-handle_cast({subscribe, SubId}, State) ->
-    case queue:peek(State#state.queue) of
-        {value, {Seq, _}} ->
-            AckSeq = Seq;
-        empty ->
-            AckSeq = 0
     end,
     SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
     {noreply, State#state{sub_seqs = SubSeqs}};

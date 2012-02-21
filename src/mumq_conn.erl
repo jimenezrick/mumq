@@ -11,8 +11,6 @@
 
 %%%-----------------------------------------------------------------------------
 %%% TODO: Terminar de implentar aqui la parte de la gestion de la cola.
-%%% TODO: Arreglar para el caso de cuando se destruye una cola por inactividad
-%%%       pero todavia tiene clientes suscritos.
 %%% TODO: Implementar los ACKs cuando este hechas las colas persistentes.
 %%%
 %%% SUBSCRIBE

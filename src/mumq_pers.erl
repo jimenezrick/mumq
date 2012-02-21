@@ -2,17 +2,13 @@
 
 %-behaviour(gen_server).
 
--export([subscribe/2,
-         enqueue/2,
+-export([enqueue/2,
          acknowledge/3,
          send_unread_messages/3]).
 
 %%%-----------------------------------------------------------------------------
 %%% XXX: Fake API
 %%%-----------------------------------------------------------------------------
-
-subscribe(_Queue, SubId) ->
-    mumq_queue:subscribe(SubId).
 
 enqueue(_Queue, Msg) ->
     mumq_queue:enqueue(Msg).
