@@ -16,16 +16,14 @@ handle_connection(Socket) ->
     handle_connection(State, Conn).
 
 handle_connection(State, Conn) ->
-    try
-        case mumq_stomp:read_frame(Conn) of
-            {error, bad_frame} ->
-                close_with_invalid_frame(Conn);
-            {error, bad_frame_size} ->
-                close_with_frame_too_big(Conn);
-            {ok, Frame, Conn2} ->
-                mumq_stomp:log_frame(Frame, mumq_stomp:peername(Conn2)),
-                handle_frame(State, Conn2, Frame)
-        end
+    try mumq_stomp:read_frame(Conn) of
+        {error, bad_frame} ->
+            close_with_invalid_frame(Conn);
+        {error, bad_frame_size} ->
+            close_with_frame_too_big(Conn);
+        {ok, Frame, Conn2} ->
+            mumq_stomp:log_frame(Frame, mumq_stomp:peername(Conn2)),
+            handle_frame(State, Conn2, Frame)
     catch
         throw:tcp_closed ->
             lager:info("Connection closed by ~s", [mumq_stomp:peername(Conn)]);
