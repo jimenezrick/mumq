@@ -6,7 +6,8 @@
          link/0,
          add_subscription/3,
          del_subscription/3,
-         get_subscriptions/1]).
+         get_subscriptions/1,
+         split_queue_name/1]).
 
 -export([init/1,
          handle_call/3,
@@ -23,27 +24,6 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-init(_Args) ->
-    process_flag(trap_exit, true),
-    ets:new(?MODULE, ?ETS_OPTS),
-    {ok, none}.
-
-handle_call(_Req, _From, _State) ->
-    exit(not_implemented).
-
-handle_cast(_Req, _State) ->
-    exit(not_implemented).
-
-handle_info({'EXIT', Pid, _Reason}, State) ->
-    clean_subscriptions(Pid),
-    {noreply, State}.
-
-terminate(_Reason, _State) ->
-    ok.
-
-code_change(_OldVsn, _State, _Extra) ->
-    exit(not_implemented).
-
 link() ->
     link(whereis(?MODULE)),
     put('$ancestors', [?MODULE | get('$ancestors')]).
@@ -52,8 +32,8 @@ add_subscription(Queue, Id, DeliveryProc) ->
     Queue2 = split_queue_name(Queue),
     case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
         [] ->
-            ets:insert(?MODULE, {Queue2, Id, DeliveryProc}),
-            ets:insert(?MODULE, {self(), Queue2, Id, DeliveryProc});
+            ets:insert(?MODULE, {self(), Queue2, Id, DeliveryProc}),
+            ets:insert(?MODULE, {Queue2, Id, DeliveryProc});
         [_] ->
             false
     end.
@@ -72,10 +52,31 @@ get_subscriptions(Queue) ->
     Match = [{{Q, '$1', '$2'}, [], [{{'$1', '$2'}}]} || Q <- make_queue_hierarchy(Queue)],
     ets:select(?MODULE, Match).
 
-clean_subscriptions(Pid) ->
+init(_Args) ->
+    process_flag(trap_exit, true),
+    ets:new(?MODULE, ?ETS_OPTS),
+    {ok, none}.
+
+handle_call(_Req, _From, _State) ->
+    exit(not_implemented).
+
+handle_cast(_Req, _State) ->
+    exit(not_implemented).
+
+handle_info({'EXIT', Pid, _Reason}, State) ->
+    del_subscriptions(Pid),
+    {noreply, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+
+code_change(_OldVsn, _State, _Extra) ->
+    exit(not_implemented).
+
+del_subscriptions(Pid) ->
     Match = [{{Q, I, D}, [], [true]} || {_, Q, I, D} <- ets:lookup(?MODULE, Pid)],
-    ets:delete(?MODULE, Pid),
-    ets:select_delete(?MODULE, Match).
+    ets:select_delete(?MODULE, Match),
+    ets:delete(?MODULE, Pid).
 
 split_queue_name(Queue) ->
     [<<>> | Parts] = binary:split(Queue, <<"/">>, [global]),

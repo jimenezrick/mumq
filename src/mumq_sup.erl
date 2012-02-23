@@ -16,6 +16,7 @@ start_link() ->
 
 init(_Args) ->
     {ok, {{rest_for_one, 5, 10}, [?CHILD(mumq_subs, mumq_subs, worker, []),
+                                  ?CHILD(mumq_pers, mumq_pers, worker, []),
                                   ?CHILD(mumq_tcpd, mumq_tcpd, worker,
                                          [mumq_tcpd, tcp, ?TCP_PORT]),
                                   ?CHILD(mumq_ssld, mumq_tcpd, worker,

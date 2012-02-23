@@ -2,10 +2,11 @@
 
 -behaviour(gen_server).
 
--export([start_link/0,
-         enqueue_message/1,
-         acknowledge_message/2,
-         send_unread_messages/2]).
+-export([start/0,
+         stop/1,
+         enqueue_message/2,
+         acknowledge_message/3,
+         send_unread_messages/3]).
 
 -export([init/1,
          handle_call/3,
@@ -23,21 +24,23 @@
                 msg_seqs = gb_trees:empty(),
                 sub_seqs = gb_trees:empty()}).
 
-start_link() ->
-    % XXX
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-    % XXX
+start() ->
+    gen_server:start(?MODULE, [], []).
 
-enqueue_message(Msg) ->
-    gen_server:cast(?MODULE, {enqueue, Msg}).
+stop(To) ->
+    gen_server:call(To, stop).
 
-acknowledge_message(SubId, MsgId) ->
-    gen_server:cast(?MODULE, {acknowledge, SubId, MsgId}).
+enqueue_message(To, Msg) ->
+    gen_server:cast(To, {enqueue, Msg}).
 
-send_unread_messages(SubId, To) ->
-    gen_server:cast(?MODULE, {send_unread, SubId, To}).
+acknowledge_message(To, SubId, MsgId) ->
+    gen_server:cast(To, {acknowledge, SubId, MsgId}).
+
+send_unread_messages(To, SubId, SendTo) ->
+    gen_server:cast(To, {send_unread, SubId, SendTo}).
 
 init(_Args) ->
+    mumq_pers:link(),
     case application:get_env(max_queue_inactivity) of
         undefined ->
             MaxQueueInactivity = timer:minutes(?MAX_QUEUE_INACTIVITY);
@@ -62,8 +65,8 @@ init(_Args) ->
                       {subscribers_purge_interval, SubscribersPurgeInterval}),
     {ok, #state{max_qsize = MaxQueueSize}}.
 
-handle_call(_Req, _From, _State) ->
-    exit(not_implemented).
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State}.
 
 handle_cast({enqueue, Msg}, State) ->
     Seq = State#state.next_seq,
