@@ -174,17 +174,17 @@ parse_header(_, Header) ->
 
 read_line(Conn) ->
     Concat = fun(B1, B2) -> <<B2/binary, B1/binary>> end,
-    {Chunk, Conn2} = read_chunk(Conn, <<$\n>>),
+    {Chunk, Conn2} = read_chunk(Conn, <<"\n">>),
     {lists:foldl(Concat, <<>>, Chunk), Conn2}.
 
 read_body(Conn, undefined) ->
-    read_chunk(Conn, <<$\0>>);
+    read_chunk(Conn, <<0>>);
 read_body(Conn, Size) ->
-    read_size_chunk(Conn, Size, <<$\0>>).
+    read_size_chunk(Conn, Size, <<0>>).
 
 eat_empty_lines(Conn) ->
     case peek_byte(Conn) of
-        {<<$\n>>, Conn2} ->
+        {<<"\n">>, Conn2} ->
             eat_empty_lines(eat_byte(Conn2));
         {_, Conn2} ->
             Conn2
