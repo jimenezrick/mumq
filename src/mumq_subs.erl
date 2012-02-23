@@ -49,35 +49,44 @@ link() ->
     put('$ancestors', [?MODULE | get('$ancestors')]).
 
 add_subscription(Queue, Id, DeliveryProc) ->
-    case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
+    Queue2 = split_queue_name(Queue),
+    case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
         [] ->
-            ets:insert(?MODULE, {Queue, Id, DeliveryProc}),
-            ets:insert(?MODULE, {self(), Queue, Id, DeliveryProc});
+            ets:insert(?MODULE, {Queue2, Id, DeliveryProc}),
+            ets:insert(?MODULE, {self(), Queue2, Id, DeliveryProc});
         [_] ->
             false
     end.
 
 del_subscription(Queue, Id, DeliveryProc) ->
-    case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
+    Queue2 = split_queue_name(Queue),
+    case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
         [_] ->
-            ets:delete_object(?MODULE, {Queue, Id, DeliveryProc}),
-            ets:delete_object(?MODULE, {self(), Queue, Id, DeliveryProc});
+            ets:delete_object(?MODULE, {Queue2, Id, DeliveryProc}),
+            ets:delete_object(?MODULE, {self(), Queue2, Id, DeliveryProc});
         [] ->
             false
     end.
 
 get_subscriptions(Queue) ->
-    Subs = [ets:lookup(?MODULE, Q) || Q <- gen_queue_hierarchy(Queue)],
-    [{I, D} || {_, I, D} <- lists:append(Subs)].
+    Match = [{{Q, '$1', '$2'}, [], ['$$']} || Q <- make_queue_hierarchy(Queue)],
+    ets:select(?MODULE, Match).
 
 clean_subscriptions(Pid) ->
-    Subs = ets:lookup(?MODULE, Pid),
+    Match = [{{Q, I, D}, [], [true]} || {_, Q, I, D} <- ets:lookup(?MODULE, Pid)],
     ets:delete(?MODULE, Pid),
-    lists:foreach(fun({_, Q, I, D}) -> ets:delete_object(?MODULE, {Q, I, D}) end, Subs).
+    ets:select_delete(?MODULE, Match).
 
-gen_queue_hierarchy(Queue) ->
-    [{0, _} | Matches] = binary:matches(Queue, <<$/>>),
-    [Queue | gen_queue_hierarchy(Queue, Matches)].
+split_queue_name(Queue) ->
+    [<<>> | Parts] = binary:split(Queue, <<"/">>, [global]),
+    Parts.
 
-gen_queue_hierarchy(Queue, Matches) ->
-    [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches].
+make_queue_hierarchy(Queue) ->
+    Parts = split_queue_name(Queue),
+    [lists:reverse(drop(N, lists:reverse(Parts))) ||
+        N <- lists:seq(0, length(Parts) - 1)].
+
+drop(0, L) ->
+    L;
+drop(N, [_ | T]) ->
+    drop(N - 1, T).
