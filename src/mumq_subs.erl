@@ -21,12 +21,12 @@
                    {read_concurrency, true}]).
 
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, self(), []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-init(SupPid) ->
+init(_Args) ->
     process_flag(trap_exit, true),
     ets:new(?MODULE, ?ETS_OPTS),
-    {ok, SupPid}.
+    {ok, none}.
 
 handle_call(_Req, _From, _State) ->
     exit(not_implemented).
@@ -34,11 +34,9 @@ handle_call(_Req, _From, _State) ->
 handle_cast(_Req, _State) ->
     exit(not_implemented).
 
-handle_info({'EXIT', SupPid, Reason}, SupPid) ->
-    exit(Reason);
-handle_info({'EXIT', Pid, _Reason}, SupPid) ->
+handle_info({'EXIT', Pid, _Reason}, State) ->
     clean_subscriptions(Pid),
-    {noreply, SupPid}.
+    {noreply, State}.
 
 terminate(_Reason, _State) ->
     ok.
