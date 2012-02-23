@@ -69,7 +69,7 @@ del_subscription(Queue, Id, DeliveryProc) ->
     end.
 
 get_subscriptions(Queue) ->
-    Match = [{{Q, '$1', '$2'}, [], ['$$']} || Q <- make_queue_hierarchy(Queue)],
+    Match = [{{Q, '$1', '$2'}, [], [{{'$1', '$2'}}]} || Q <- make_queue_hierarchy(Queue)],
     ets:select(?MODULE, Match).
 
 clean_subscriptions(Pid) ->
