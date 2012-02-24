@@ -19,20 +19,20 @@ add_subscription(Queue, Id, DeliveryProc) ->
     Queue2 = split_queue_name(Queue),
     case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
         [] ->
-            ets:insert(?MODULE, {self(), Queue2, Id, DeliveryProc}),
-            ets:insert(?MODULE, {Queue2, Id, DeliveryProc});
+            ets:insert(?MODULE, [{self(), Queue2, Id, DeliveryProc},
+                                 {Queue2, Id, DeliveryProc}]);
         [_] ->
             false
     end.
 
 del_subscription(Queue, Id, DeliveryProc) ->
     Queue2 = split_queue_name(Queue),
-    case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
-        [_] ->
-            ets:delete_object(?MODULE, {Queue2, Id, DeliveryProc}),
-            ets:delete_object(?MODULE, {self(), Queue2, Id, DeliveryProc});
-        [] ->
-            false
+    case
+        ets:select_delete(?MODULE, [{{Queue2, Id, DeliveryProc}, [], [true]},
+                                    {{self(), Queue2, Id, DeliveryProc}, [], [true]}])
+    of
+        2 -> true;
+        0 -> false
     end.
 
 get_subscriptions(Queue) ->
