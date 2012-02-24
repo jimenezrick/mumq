@@ -1,3 +1,5 @@
+- Test mumq_queue.
+- Implement mumq_client.
 - Add bridge mode between several brokers.
 - Add automatic detection/connection of neighborhood brokers.
 - Make some simple benchmark.

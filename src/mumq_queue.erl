@@ -2,8 +2,7 @@
 
 -behaviour(gen_server).
 
--export([start/0,
-         stop/1,
+-export([start_link/0,
          enqueue_message/2,
          acknowledge_message/3,
          send_unread_messages/3]).
@@ -24,11 +23,8 @@
                 msg_seqs = gb_trees:empty(),
                 sub_seqs = gb_trees:empty()}).
 
-start() ->
-    gen_server:start(?MODULE, [], []).
-
-stop(To) ->
-    gen_server:call(To, stop).
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
 
 enqueue_message(To, Msg) ->
     gen_server:cast(To, {enqueue, Msg}).
@@ -40,7 +36,6 @@ send_unread_messages(To, SubId, SendTo) ->
     gen_server:cast(To, {send_unread, SubId, SendTo}).
 
 init(_Args) ->
-    mumq_pers:link(),
     case application:get_env(max_queue_inactivity) of
         undefined ->
             MaxQueueInactivity = timer:minutes(?MAX_QUEUE_INACTIVITY);
@@ -65,8 +60,8 @@ init(_Args) ->
                       {subscribers_purge_interval, SubscribersPurgeInterval}),
     {ok, #state{max_qsize = MaxQueueSize}}.
 
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State}.
+handle_call(_Req, _From, _State) ->
+    exit(not_implemented).
 
 handle_cast({enqueue, Msg}, State) ->
     Seq = State#state.next_seq,
@@ -100,7 +95,7 @@ handle_cast({acknowledge, SubId, MsgId}, State) ->
     end,
     SubSeqs = gb_trees:enter(SubId, AckSeq, State#state.sub_seqs),
     {noreply, State#state{sub_seqs = SubSeqs}};
-handle_cast({send_unread, SubId, To}, State) ->
+handle_cast({send_unread, SubId, SendTo}, State) ->
     case gb_trees:lookup(SubId, State#state.sub_seqs) of
         {value, AckSeq} ->
             true;
@@ -114,7 +109,7 @@ handle_cast({send_unread, SubId, To}, State) ->
     end,
     queue_map_from(
         fun(M) ->
-                To ! mumq_stomp:add_header(M, <<"subscription">>, SubId)
+                SendTo ! mumq_stomp:add_header(M, <<"subscription">>, SubId)
         end, State#state.queue, AckSeq),
     {noreply, State}.
 
