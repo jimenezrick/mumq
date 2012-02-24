@@ -15,7 +15,6 @@
             ]},
   {registered, [
                 mumq_sup,
-                mumq_subs,
                 mumq_pers,
                 mumq_tcpd,
                 mumq_ssld
