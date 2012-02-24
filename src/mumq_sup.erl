@@ -8,9 +8,6 @@
 
 -include("mumq.hrl").
 
--define(CHILD(Id, Mod, Type, Args), {Id, {Mod, start_link, Args},
-                                     permanent, 5000, Type, [Mod]}).
-
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
