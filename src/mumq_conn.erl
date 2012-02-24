@@ -71,8 +71,10 @@ handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = 
         {ok, Dest} ->
             SubId = mumq_stomp:get_header(Frame, <<"id">>),
             case mumq_subs:add_subscription(Dest, SubId, State#state.delivery_proc) of
-                true ->
+                true when SubId /= undefined ->
                     mumq_pers:send_unread_messages(Dest, SubId, State#state.delivery_proc);
+                true ->
+                    true;
                 false ->
                     write_already_subscribed(Conn, Dest)
             end,
