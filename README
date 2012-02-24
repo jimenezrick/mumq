@@ -12,10 +12,8 @@ the session is broken for any reason, the client can reconnect and
 subscribe to the same queue using the previous `id' and it will received
 the messages that were sent to the queue while he was not connected.
 
-The queue names must have the format of an absolute UNIX path, like this:
-
-        /foo
-        /foo/bar
+The queue names must have the format of an absolute UNIX path, like /foo
+or /foo/bar.
 
 Any subscription will always suppose an implicit subscription to any
 other existing queue with the same name prefix (i.e., specifying /foo,
