@@ -16,7 +16,6 @@ The queue names must have the format of an absolute UNIX path, like this:
 
         /foo
         /foo/bar
-        /...
 
 Any subscription will always suppose an implicit subscription to any
 other existing queue with the same name prefix (i.e., specifying /foo,
