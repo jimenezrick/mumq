@@ -27,7 +27,7 @@ start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
 enqueue_message(To, Msg) ->
-    gen_server:cast(To, {enqueue, Msg}).
+    gen_server:call(To, {enqueue, Msg}).
 
 acknowledge_message(To, SubId, MsgId) ->
     gen_server:cast(To, {acknowledge, SubId, MsgId}).
@@ -60,10 +60,7 @@ init(_Args) ->
                       {subscribers_purge_interval, SubscribersPurgeInterval}),
     {ok, #state{max_qsize = MaxQueueSize}}.
 
-handle_call(_Req, _From, _State) ->
-    exit(not_implemented).
-
-handle_cast({enqueue, Msg}, State) ->
+handle_call({enqueue, Msg}, _From, State) ->
     Seq = State#state.next_seq,
     Queue = queue:in({Seq, Msg}, State#state.queue),
     MsgId = mumq_stomp:get_header(Msg, <<"message-id">>),
@@ -79,8 +76,9 @@ handle_cast({enqueue, Msg}, State) ->
             Queue2 = Queue,
             MsgSeqs2 = MsgSeqs
     end,
-    {noreply, State#state{qsize = Size, queue = Queue2,
-                          next_seq = Seq + 1, msg_seqs = MsgSeqs2}};
+    {reply, ok, State#state{qsize = Size, queue = Queue2,
+                            next_seq = Seq + 1, msg_seqs = MsgSeqs2}}.
+
 handle_cast({acknowledge, SubId, MsgId}, State) ->
     case gb_trees:lookup(MsgId, State#state.msg_seqs) of
         {value, Seq} ->
