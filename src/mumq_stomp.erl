@@ -21,6 +21,7 @@
          add_content_length/1,
          get_header/2,
          serialize_frame/1,
+         serialize_frame_no_null/1,
          make_uuid/0,
          make_uuid_base64/0]).
 
@@ -316,6 +317,9 @@ serialize_frame(Frame) ->
     #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
     Cmd = string:to_upper(atom_to_list(Cmd0)),
     [Cmd, "\n", prepare_headers(Headers), "\n", Body, "\0"].
+
+serialize_frame_no_null(Frame) ->
+    lists:delete("\0", serialize_frame(Frame)).
 
 save_startup_timestamp() ->
     application:set_env(mumq, startup_timestamp, now()).

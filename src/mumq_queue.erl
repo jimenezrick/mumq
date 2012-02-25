@@ -5,7 +5,8 @@
 -export([start_link/1,
          enqueue_message/2,
          acknowledge_message/3,
-         send_unread_messages/3]).
+         send_unread_messages/3,
+         queue_info/1]).
 
 -export([init/1,
          handle_call/3,
@@ -35,6 +36,9 @@ acknowledge_message(To, SubId, MsgId) ->
 
 send_unread_messages(To, SubId, SendTo) ->
     gen_server:cast(To, {send_unread, SubId, SendTo}).
+
+queue_info(To) ->
+    gen_server:call(To, info).
 
 init(QueueName) ->
     case application:get_env(max_queue_inactivity) of
@@ -78,7 +82,11 @@ handle_call({enqueue, Msg}, _From, State) ->
             MsgSeqs2 = MsgSeqs
     end,
     {reply, ok, State#state{qsize = Size, queue = Queue2,
-                            next_seq = Seq + 1, msg_seqs = MsgSeqs2}}.
+                            next_seq = Seq + 1, msg_seqs = MsgSeqs2}};
+handle_call(info, _From, State) ->
+    Queue = queue:to_list(State#state.queue),
+    Subs = gb_trees:to_list(State#state.sub_seqs),
+    {reply, {Queue, Subs}, State}.
 
 handle_cast({acknowledge, SubId, MsgId}, State) ->
     case gb_trees:lookup(MsgId, State#state.msg_seqs) of

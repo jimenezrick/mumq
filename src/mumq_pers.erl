@@ -6,7 +6,8 @@
          enqueue_message/2,
          acknowledge_message/3,
          send_unread_messages/3,
-         registered_queues/0]).
+         registered_queues/0,
+         queue_info/1]).
 
 -export([init/1,
          handle_call/3,
@@ -94,3 +95,6 @@ join_queue_name([H | T]) -> ["/", H | join_queue_name(T)].
 
 registered_queues() ->
     [{P, join_queue_name(Q)} || {Q, P} <- ets:tab2list(?MODULE)].
+
+queue_info(Queue) ->
+    mumq_queue:queue_info(lookup_queue(Queue)).

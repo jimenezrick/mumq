@@ -1,8 +1,6 @@
 - Use Typer and Dialyzer.
 - Implement mumq_client: register handler (callback) for given frame
-  type plus defined headers. Soporte para application/json con mochiweb.
-- Implement mumq: queue content (all and by seq number), enviar el
-  estado tambien, con los subscriptores.
+  type plus defined headers. Support for application/json with mochiweb.
 - Add bridge mode between several brokers.
 - Add automatic detection/connection of neighborhood brokers.
 - Make some simple benchmark. Viper vs. Beagle.
