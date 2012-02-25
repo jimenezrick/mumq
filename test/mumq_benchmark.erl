@@ -3,7 +3,8 @@
 -compile(export_all).
 
 start() ->
-    {ok, Conn} = mumq_client:connect("localhost"),
+    ssl:start(),
+    {ok, Conn} = mumq_client:connect_ssl("localhost"),
 
     io:format("Connected!\n"),
 
