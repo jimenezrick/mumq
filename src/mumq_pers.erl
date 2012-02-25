@@ -5,7 +5,8 @@
 -export([start_link/0,
          enqueue_message/2,
          acknowledge_message/3,
-         send_unread_messages/3]).
+         send_unread_messages/3,
+         registered_queues/0]).
 
 -export([init/1,
          handle_call/3,
@@ -87,3 +88,9 @@ lookup_nested_queues(Queue) ->
 split_queue_name(Queue) ->
     [<<>> | Parts] = binary:split(Queue, <<"/">>, [global]),
     Parts.
+
+join_queue_name([])      -> [];
+join_queue_name([H | T]) -> ["/", H | join_queue_name(T)].
+
+registered_queues() ->
+    [{P, join_queue_name(Q)} || {Q, P} <- ets:tab2list(?MODULE)].

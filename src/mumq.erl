@@ -2,7 +2,8 @@
 
 -export([start/0,
          stop/0,
-         connected_clients/0]).
+         subscribed_clients/0,
+         registered_queues/0]).
 
 start() ->
     application:start(crypto),
@@ -15,13 +16,26 @@ start() ->
 stop() ->
     application:stop(?MODULE).
 
-connected_clients() ->
-    io:format("---------------------------------------------------------------------------------~n"),
-    inet:i(),
-    io:format("---------------------------------------------------------------------------------~n"),
-    io:format("~-16s~-40s~s~n", ["Pid", "Queue", "Id"]),
-    lists:foreach(
-        fun({P, Q, I}) ->
-                io:format("~-16w~-40s~s~n", [P, Q, I])
-        end, mumq_subs:subscribed_clients()),
-    io:format("---------------------------------------------------------------------------------~n").
+subscribed_clients() ->
+    case mumq_subs:subscribed_clients() of
+        [] ->
+            ok;
+        Subs ->
+            io:format("~-10s~-20s~s~n", ["Pid", "Queue", "Id"]),
+            lists:foreach(
+                fun({P, Q, I}) ->
+                        io:format("~-10w~-20s~s~n", [P, Q, I])
+                end, Subs)
+    end.
+
+registered_queues() ->
+    case mumq_pers:registered_queues() of
+        [] ->
+            ok;
+        Queues ->
+            io:format("~-10s~s~n", ["Pid", "Queue"]),
+            lists:foreach(
+                fun({P, Q}) ->
+                        io:format("~-10w~s~n", [P, Q])
+                end, Queues)
+    end.
