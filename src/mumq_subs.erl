@@ -5,7 +5,8 @@
          del_subscription/3,
          del_subscriptions/1,
          get_subscriptions/1,
-         split_queue_name/1]).
+         split_queue_name/1,
+         subscribed_clients/0]).
 
 -define(ETS_OPTS, [bag,
                    named_table,
@@ -58,3 +59,6 @@ drop(0, L) ->
     L;
 drop(N, [_ | T]) ->
     drop(N - 1, T).
+
+subscribed_clients() ->
+    [{P, Q, I} || {P, Q, I, _} <- ets:tab2list(?MODULE)].
