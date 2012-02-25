@@ -69,7 +69,7 @@ prepare_header({Key, Val}) when is_list(Key) ->
 prepare_header({<<"content-length">>, Len}) when is_integer(Len) ->
     prepare_header({<<"content-length">>, integer_to_list(Len)});
 prepare_header({Key, Val}) ->
-    [Key, $:, Val, $\n].
+    [Key, ":", Val, "\n"].
 
 read_frame(Conn) ->
     try
@@ -315,7 +315,7 @@ get_header(Frame, Key) ->
 serialize_frame(Frame) ->
     #frame{cmd = Cmd0, headers = Headers, body = Body} = Frame,
     Cmd = string:to_upper(atom_to_list(Cmd0)),
-    [Cmd, $\n, prepare_headers(Headers), $\n, Body, $\0].
+    [Cmd, "\n", prepare_headers(Headers), "\n", Body, "\0"].
 
 save_startup_timestamp() ->
     application:set_env(mumq, startup_timestamp, now()).
