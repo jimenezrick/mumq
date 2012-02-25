@@ -5,6 +5,10 @@
 start() ->
     {ok, Conn} = mumq_client:connect("localhost"),
 
+    %
+    % FIXME: No funciona con SSL
+    %
+
     %send_frame(Conn, Frame) ->
     %recv_frame(Conn) ->
     %recv_frame(Conn, Handlers) ->

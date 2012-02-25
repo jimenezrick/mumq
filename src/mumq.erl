@@ -7,12 +7,14 @@
          queue_info/1]).
 
 start() ->
-    application:start(crypto),
-    application:start(public_key),
-    application:start(ssl),
-    application:start(lager),
-    application:start(gen_tcpd),
-    application:start(?MODULE).
+    ok = application:start(crypto),
+    ok = application:start(public_key),
+    ok = application:start(ssl),
+    ok = application:start(compiler),
+    ok = application:start(syntax_tools),
+    ok = application:start(lager),
+    ok = application:start(gen_tcpd),
+    ok = application:start(?MODULE).
 
 stop() ->
     application:stop(?MODULE).
