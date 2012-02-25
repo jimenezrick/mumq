@@ -38,7 +38,7 @@ init(_Args) ->
     ets:new(?MODULE, ?ETS_OPTS),
     {ok, gb_trees:empty()}.
 
-handle_call({register_queue, Queue}, _From, Queues) ->
+handle_call({start_queue, Queue}, _From, Queues) ->
     {ok, Pid} = mumq_qsup:start_child(),
     Queue2 = mumq_subs:split_queue_name(Queue),
     case ets:insert_new(?MODULE, {Queue2, Pid}) of
@@ -48,7 +48,7 @@ handle_call({register_queue, Queue}, _From, Queues) ->
             {reply, Pid, Queues2};
         false ->
             mumq_qsup:terminate_child(Pid),
-            {reply, retry, Queues}
+            {reply, already_started, Queues}
     end.
 
 handle_cast(_Req, _State) ->
@@ -72,8 +72,8 @@ lookup_queue(Queue) ->
         [{_, Pid}] ->
             Pid;
         [] ->
-            case gen_server:call(?MODULE, {register_queue, Queue}) of
-                retry ->
+            case gen_server:call(?MODULE, {start_queue, Queue}) of
+                already_started ->
                     lookup_queue(Queue);
                 Pid ->
                     Pid

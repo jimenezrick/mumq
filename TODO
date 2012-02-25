@@ -1,4 +1,4 @@
-- Test mumq_queue.
+- Use Typer and Dialyzer.
 - Implement mumq_client.
 - Add bridge mode between several brokers.
 - Add automatic detection/connection of neighborhood brokers.
