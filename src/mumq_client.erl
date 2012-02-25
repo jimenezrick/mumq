@@ -17,13 +17,18 @@ connect_ssl(Host) ->
     connect(Host, ?TCP_PORT + 1, ssl).
 
 connect(Host, Port, Type) ->
-    Socket = case Type of
+    Res = case Type of
         tcp ->
             gen_tcp:connect(Host, Port, ?TCP_OPTS);
         ssl ->
             ssl:connect(Host, Port, ?TCP_OPTS)
     end,
-    mumq_stomp:make_conn(make_socket(Socket, Type)).
+    case Res of
+        {ok, Socket} ->
+            mumq_stomp:make_conn(make_socket(Socket, Type));
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 make_socket(Socket, tcp)  -> {gen_tcp, Socket};
 make_socket(Socket, Type) -> {Type, Socket}.
