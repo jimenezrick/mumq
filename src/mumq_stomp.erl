@@ -2,7 +2,8 @@
 
 -on_load(save_startup_timestamp/0).
 
--export([create_conn/1,
+-export([make_conn/1,
+         close_conn/1,
          socket/1,
          peername/1,
          write_frame/2,
@@ -37,12 +38,15 @@
                frame_size = 0,
                buf = []}).
 
-create_conn(Socket) ->
+make_conn(Socket) ->
     {ok, Peer0} = gen_tcpd:peername(Socket),
     Peer = format_peer(Peer0),
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
     Max = max_frame_size(),
     #conn{sock = Socket, peer = Peer, recv_len = RecvLen, max_frame_size = Max}.
+
+close_conn(Conn) ->
+    gen_tcpd:close(Conn#conn.sock).
 
 format_peer({{O1, O2, O3, O4}, P}) ->
     io_lib:format("~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]).
@@ -59,6 +63,8 @@ socket(Conn) -> Conn#conn.sock.
 
 peername(Conn) -> Conn#conn.peer.
 
+write_frame(Conn, Frame) when is_record(Conn, conn) ->
+    write_frame(Conn#conn.sock, Frame);
 write_frame(Socket, Frame) ->
     gen_tcpd:send(Socket, serialize_frame(Frame)).
 

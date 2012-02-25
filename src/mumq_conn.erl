@@ -10,7 +10,7 @@
                 session}).
 
 handle_connection(Socket) ->
-    Conn = mumq_stomp:create_conn(Socket),
+    Conn = mumq_stomp:make_conn(Socket),
     Pid = start_delivery_proc(Socket, mumq_stomp:peername(Conn)),
     State = #state{delivery_proc = Pid},
     handle_connection(State, Conn).
@@ -115,7 +115,7 @@ handle_frame(State = #state{conn_state = disconnected}, Conn, Frame = #frame{cmd
 handle_frame(State = #state{conn_state = connected}, Conn, #frame{cmd = disconnect}) ->
     lager:info("Connection closed by ~s with session ~s",
                [mumq_stomp:peername(Conn), State#state.session]),
-    gen_tcpd:close(mumq_stomp:socket(Conn));
+    mumq_stomp:close_conn(Conn);
 handle_frame(_, Conn, Frame) ->
     close_with_invalid_frame(Conn, Frame).
 
@@ -182,11 +182,11 @@ write_error_frame(Conn, ErrorMsg, ErrorFrame, LogMsg) ->
 
 close_with_error_frame(Conn, ErrorMsg, LogMsg) ->
     write_error_frame(Conn, ErrorMsg, LogMsg),
-    gen_tcpd:close(mumq_stomp:socket(Conn)).
+    mumq_stomp:close_conn(Conn).
 
 close_with_error_frame(Conn, ErrorMsg, ErrorFrame, LogMsg) ->
     write_error_frame(Conn, ErrorMsg, ErrorFrame, LogMsg),
-    gen_tcpd:close(mumq_stomp:socket(Conn)).
+    mumq_stomp:close_conn(Conn).
 
 write_already_subscribed(Conn, Dest) ->
     write_error_frame(Conn, ["already subscribed to ", Dest],

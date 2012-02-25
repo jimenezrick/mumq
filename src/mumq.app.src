@@ -5,6 +5,7 @@
   {modules, [
              mumq,
              mumq_app,
+             mumq_client,
              mumq_conn,
              mumq_pers,
              mumq_qsup,

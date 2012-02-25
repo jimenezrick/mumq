@@ -5,6 +5,12 @@
 -define(MAX_QUEUE_INACTIVITY,       7 * 24 * 60).
 -define(SUBSCRIBERS_PURGE_INTERVAL, 60).
 
+-define(TCP_OPTS, [binary,
+                   {active, false},
+                   {packet, raw},
+                   {nodelay, true},
+                   {keepalive, true}]).
+
 -define(DEBUG, true).
 
 -record(frame, {cmd, headers = [], body = <<>>}).
