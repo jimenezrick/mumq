@@ -25,7 +25,7 @@ connect(Host, Port, Type) ->
     end,
     case Res of
         {ok, Socket} ->
-            mumq_stomp:make_conn(make_socket(Socket, Type));
+            {ok, mumq_stomp:make_conn(make_socket(Socket, Type))};
         {error, Reason} ->
             {error, Reason}
     end.

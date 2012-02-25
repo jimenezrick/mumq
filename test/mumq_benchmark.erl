@@ -5,6 +5,8 @@
 start() ->
     {ok, Conn} = mumq_client:connect("localhost"),
 
+    io:format("Connected!\n"),
+
     %
     % FIXME: No funciona con SSL
     %
