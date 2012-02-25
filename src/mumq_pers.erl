@@ -39,7 +39,7 @@ init(_Args) ->
     {ok, gb_trees:empty()}.
 
 handle_call({start_queue, Queue}, _From, Queues) ->
-    {ok, Pid} = mumq_qsup:start_child(),
+    {ok, Pid} = mumq_qsup:start_child(Queue),
     Queue2 = mumq_subs:split_queue_name(Queue),
     case ets:insert_new(?MODULE, {Queue2, Pid}) of
         true ->

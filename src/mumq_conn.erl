@@ -55,13 +55,13 @@ authenticate_client(Login, Passcode) ->
 handle_frame(State = #state{conn_state = connected}, Conn, Frame = #frame{cmd = send}) ->
     case validate_destination(Frame) of
         {ok, Dest} ->
-            Subs = mumq_subs:get_subscriptions(Dest),
             MsgFrame = mumq_stomp:message_frame(Frame),
+            mumq_pers:enqueue_message(Dest, MsgFrame),
+            Subs = mumq_subs:get_subscriptions(Dest),
             lists:foreach(
                 fun({I, D}) ->
                         D ! mumq_stomp:add_header(MsgFrame, <<"subscription">>, I)
                 end, Subs),
-            mumq_pers:enqueue_message(Dest, MsgFrame),
             handle_connection(State, Conn);
         {error, _} ->
             close_with_invalid_frame(Conn, Frame)

@@ -2,7 +2,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0,
+-export([start_link/1,
          enqueue_message/2,
          acknowledge_message/3,
          send_unread_messages/3]).
@@ -16,15 +16,16 @@
 
 -include("mumq.hrl").
 
--record(state, {max_qsize,
+-record(state, {name,
+                max_qsize,
                 qsize = 0,
                 queue = queue:new(),
                 next_seq = 0,
                 msg_seqs = gb_trees:empty(),
                 sub_seqs = gb_trees:empty()}).
 
-start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+start_link(QueueName) ->
+    gen_server:start_link(?MODULE, QueueName, []).
 
 enqueue_message(To, Msg) ->
     gen_server:call(To, {enqueue, Msg}).
@@ -35,7 +36,7 @@ acknowledge_message(To, SubId, MsgId) ->
 send_unread_messages(To, SubId, SendTo) ->
     gen_server:cast(To, {send_unread, SubId, SendTo}).
 
-init(_Args) ->
+init(QueueName) ->
     case application:get_env(max_queue_inactivity) of
         undefined ->
             MaxQueueInactivity = timer:minutes(?MAX_QUEUE_INACTIVITY);
@@ -58,7 +59,7 @@ init(_Args) ->
                       {max_queue_inactivity, MaxQueueInactivity, 0}),
     erlang:send_after(SubscribersPurgeInterval, self(),
                       {subscribers_purge_interval, SubscribersPurgeInterval}),
-    {ok, #state{max_qsize = MaxQueueSize}}.
+    {ok, #state{name = QueueName, max_qsize = MaxQueueSize}}.
 
 handle_call({enqueue, Msg}, _From, State) ->
     Seq = State#state.next_seq,
@@ -68,7 +69,7 @@ handle_call({enqueue, Msg}, _From, State) ->
     if
         State#state.qsize == State#state.max_qsize ->
             Size = State#state.qsize,
-            {{value, MsgDrop}, Queue2} = queue:out(Queue),
+            {{value, {_, MsgDrop}}, Queue2} = queue:out(Queue),
             MsgIdDrop = mumq_stomp:get_header(MsgDrop, <<"message-id">>),
             MsgSeqs2 = gb_trees:delete(MsgIdDrop, MsgSeqs);
         true ->
@@ -112,11 +113,14 @@ handle_cast({send_unread, SubId, SendTo}, State) ->
     {noreply, State}.
 
 handle_info({max_queue_inactivity, _, PrevSeq}, State = #state{next_seq = PrevSeq}) ->
+    lager:info("Dropping stored messages in ~s due to queue inactivity",
+               [State#state.name]),
     {stop, normal, State};
 handle_info({max_queue_inactivity, T, _}, State) ->
     erlang:send_after(T, self(), {max_queue_inactivity, T, State#state.next_seq}),
     {noreply, State};
 handle_info({subscribers_purge_interval, T}, State) ->
+    lager:info("Purging subscribers from queue ~s", [State#state.name]),
     State2 = purge_subscribers(State),
     erlang:send_after(T, self(), {subscribers_purge_interval, T}),
     {noreply, State2}.
