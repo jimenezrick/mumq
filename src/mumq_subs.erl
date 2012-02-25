@@ -5,7 +5,6 @@
          del_subscription/3,
          del_subscriptions/1,
          get_subscriptions/1,
-         split_queue_name/1,
          subscribed_clients/0]).
 
 -define(ETS_OPTS, [bag,
@@ -17,20 +16,18 @@ create_table() ->
     ets:new(?MODULE, ?ETS_OPTS).
 
 add_subscription(Queue, Id, DeliveryProc) ->
-    Queue2 = split_queue_name(Queue),
-    case ets:match_object(?MODULE, {self(), Queue2, Id, DeliveryProc}) of
+    case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of
         [] ->
-            ets:insert(?MODULE, [{self(), Queue2, Id, DeliveryProc},
-                                 {Queue2, Id, DeliveryProc}]);
+            ets:insert(?MODULE, [{self(), Queue, Id, DeliveryProc},
+                                 {Queue, Id, DeliveryProc}]);
         [_] ->
             false
     end.
 
 del_subscription(Queue, Id, DeliveryProc) ->
-    Queue2 = split_queue_name(Queue),
     case
-        ets:select_delete(?MODULE, [{{Queue2, Id, DeliveryProc}, [], [true]},
-                                    {{self(), Queue2, Id, DeliveryProc}, [], [true]}])
+        ets:select_delete(?MODULE, [{{Queue, Id, DeliveryProc}, [], [true]},
+                                    {{self(), Queue, Id, DeliveryProc}, [], [true]}])
     of
         2 -> true;
         0 -> false
@@ -46,19 +43,12 @@ del_subscriptions(Pid) ->
     ets:select_delete(?MODULE, Match),
     ets:delete(?MODULE, Pid).
 
-split_queue_name(Queue) ->
-    [<<>> | Parts] = binary:split(Queue, <<"/">>, [global]),
-    Parts.
-
 make_queue_hierarchy(Queue) ->
-    Parts = split_queue_name(Queue),
-    [lists:reverse(drop(N, lists:reverse(Parts))) ||
-        N <- lists:seq(0, length(Parts) - 1)].
+    [{0, _} | Matches] = binary:matches(Queue, <<"/">>),
+    [Queue | lists:reverse(make_queue_hierarchy(Queue, Matches))].
 
-drop(0, L) ->
-    L;
-drop(N, [_ | T]) ->
-    drop(N - 1, T).
+make_queue_hierarchy(Queue, Matches) ->
+    [binary:part(Queue, 0, Pos) || {Pos, _} <- Matches].
 
 subscribed_clients() ->
     [{P, Q, I} || {P, Q, I, _} <- ets:tab2list(?MODULE)].

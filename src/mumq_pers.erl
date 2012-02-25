@@ -40,7 +40,7 @@ init(_Args) ->
 
 handle_call({start_queue, Queue}, _From, Queues) ->
     {ok, Pid} = mumq_qsup:start_child(Queue),
-    Queue2 = mumq_subs:split_queue_name(Queue),
+    Queue2 = split_queue_name(Queue),
     case ets:insert_new(?MODULE, {Queue2, Pid}) of
         true ->
             monitor(process, Pid),
@@ -67,7 +67,7 @@ code_change(_OldVsn, _State, _Extra) ->
     exit(not_implemented).
 
 lookup_queue(Queue) ->
-    Queue2 = mumq_subs:split_queue_name(Queue),
+    Queue2 = split_queue_name(Queue),
     case ets:lookup(?MODULE, Queue2) of
         [{_, Pid}] ->
             Pid;
@@ -81,5 +81,9 @@ lookup_queue(Queue) ->
     end.
 
 lookup_nested_queues(Queue) ->
-    Queue2 = mumq_subs:split_queue_name(Queue),
+    Queue2 = split_queue_name(Queue),
     ets:select(?MODULE, [{{Queue2 ++ '_', '$1'}, [], ['$1']}]).
+
+split_queue_name(Queue) ->
+    [<<>> | Parts] = binary:split(Queue, <<"/">>, [global]),
+    Parts.
