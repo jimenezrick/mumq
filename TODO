@@ -1,3 +1,4 @@
+- Add license to all files.
 - Use Typer and Dialyzer.
 - Add bridge mode between several brokers.
 - Add automatic detection/connection of neighborhood brokers.
