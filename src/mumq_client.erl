@@ -74,7 +74,7 @@ unsubscribe(Conn, Queue, Id) ->
     mumq_stomp:write_frame(Conn, mumq_stomp:unsubscribe_frame(Queue, Id)).
 
 send(Conn, Queue, Msg) ->
-    Frame = mumq_stomp:add_content_length(mumq_stomp:message_frame(Queue, Msg)),
+    Frame = mumq_stomp:add_content_length(mumq_stomp:send_frame(Queue, Msg)),
     mumq_stomp:write_frame(Conn, Frame).
 
 send_frame(Conn, Frame) ->

@@ -18,6 +18,7 @@
          subscribe_frame/2,
          unsubscribe_frame/1,
          unsubscribe_frame/2,
+         send_frame/2,
          message_frame/1,
          message_frame/2,
          error_frame/1,
@@ -316,6 +317,9 @@ unsubscribe_frame(Dest) ->
 
 unsubscribe_frame(Dest, Id) ->
     #frame{cmd = unsubscribe, headers = [{<<"destination">>, Dest}, {<<"id">>, Id}]}.
+
+send_frame(Dest, Body) ->
+    #frame{cmd = send, headers = [{<<"destination">>, Dest}], body = Body}.
 
 message_frame(#frame{cmd = send, headers = Headers, body = Body}) ->
     add_header(#frame{cmd = message, headers = Headers, body = Body},

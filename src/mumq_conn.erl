@@ -174,7 +174,7 @@ write_error_frame(Conn, ErrorMsg, LogMsg) ->
     lager:info(LogMsg, [mumq_stomp:peername(Conn)]).
 
 write_error_frame(Conn, ErrorMsg, ErrorFrame, LogMsg) ->
-    ErrorFrame2 = mumq_stomp:serialize_frame(ErrorFrame),
+    ErrorFrame2 = mumq_stomp:serialize_frame_no_null(ErrorFrame),
     ErrorBody = ["--------\n", ErrorFrame2, "\n--------\n"],
     mumq_stomp:write_frame(mumq_stomp:socket(Conn),
                            mumq_stomp:error_frame(ErrorMsg, ErrorBody)),
