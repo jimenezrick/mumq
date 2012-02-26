@@ -7,6 +7,8 @@ persistence written in Erlang.
 μMQ supports a subset of STOMP 1.0: no transaction support, nor receipt
 header and the acknowledge method is always `auto'.
 
+By default, the server opens the TCP port 61613 and 61614 for SSL.
+
 The persistence works subscribing to any queue using the `id' header, if
 the session is broken for any reason, the client can reconnect and
 subscribe to the same queue using the previous `id' and it will received
@@ -43,6 +45,25 @@ your desired destination and use the next helper script to control it:
 
 NOTE: the release handling seems to be broken in R15B, so better use any
       R14 release for creating the target system.
+
+
+ How to enable SSL
+-------------------
+
+μMQ always opens the port for SSL but by default, it isn't usable. You
+need to have a private key and a certificate.
+
+Use this pair of commands to create a new key and a new self-signed
+certificate if you don't have one:
+
+	openssl genrsa -out mumq-key.pem 1024
+	openssl req -new -x509 -nodes -sha1 -days 365 \
+		-key mumq-key.pem -out mumq-cert.pem
+
+And also add to the μMQ application configuration the next parameters:
+
+	{certfile, "/path/to/mumq-cert.pem"}
+	{keyfile, "/path/to/mumq-key.pem"}
 
 
  License
