@@ -8,9 +8,6 @@ start() ->
 
     io:format("Connected!\n"),
 
-    %
-    % FIXME: No funciona con SSL
-    %
 
     %send_frame(Conn, Frame) ->
     %recv_frame(Conn) ->

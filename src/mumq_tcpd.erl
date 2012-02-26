@@ -14,15 +14,9 @@
 start_link(Name, Type, Port) ->
     case Type of
         ssl ->
-            case
-                {application:get_env(ssl_certfile),
-                 application:get_env(ssl_keyfile)}
-            of
-                {{ok, CertFile}, {ok, KeyFile}} ->
-                    SslOpts = [{certfile, CertFile}, {keyfile, KeyFile}];
-                _ ->
-                    SslOpts = []
-            end;
+            {ok, CertFile} = application:get_env(ssl_certfile),
+            {ok, KeyFile} = application:get_env(ssl_keyfile),
+            SslOpts = [{certfile, CertFile}, {keyfile, KeyFile}];
         _ ->
             SslOpts = []
     end,

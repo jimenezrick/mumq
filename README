@@ -50,8 +50,8 @@ NOTE: the release handling seems to be broken in R15B, so better use any
  How to enable SSL
 -------------------
 
-μMQ always opens the port for SSL but by default, it isn't usable. You
-need to have a private key and a certificate.
+μMQ will enable SSL automatically if you specify a private key and a
+certificate.
 
 Use this pair of commands to create a new key and a new self-signed
 certificate if you don't have one:
