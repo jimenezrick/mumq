@@ -14,6 +14,10 @@
          connect_frame/2,
          connected_frame/1,
          disconnect_frame/0,
+         subscribe_frame/1,
+         subscribe_frame/2,
+         unsubscribe_frame/1,
+         unsubscribe_frame/2,
          message_frame/1,
          message_frame/2,
          error_frame/1,
@@ -52,7 +56,7 @@ format_peer({{O1, O2, O3, O4}, P}) ->
     io_lib:format("~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]).
 
 max_frame_size() ->
-    case application:get_env(max_frame_size) of
+    case application:get_env(mumq, max_frame_size) of
         undefined ->
             ?MAX_FRAME_SIZE;
         {ok, Max} ->
@@ -101,6 +105,8 @@ read_command(Conn) ->
     Cmd = case Line of
         <<"CONNECT">> ->
             connect;
+        <<"CONNECTED">> ->
+            connected;
         <<"SEND">> ->
             send;
         <<"SUBSCRIBE">> ->
@@ -299,6 +305,18 @@ connected_frame(Session) ->
 disconnect_frame() ->
     #frame{cmd = disconnect}.
 
+subscribe_frame(Dest) ->
+    #frame{cmd = subscribe, headers = [{<<"destination">>, Dest}]}.
+
+subscribe_frame(Dest, Id) ->
+    #frame{cmd = subscribe, headers = [{<<"destination">>, Dest}, {<<"id">>, Id}]}.
+
+unsubscribe_frame(Dest) ->
+    #frame{cmd = unsubscribe, headers = [{<<"destination">>, Dest}]}.
+
+unsubscribe_frame(Dest, Id) ->
+    #frame{cmd = unsubscribe, headers = [{<<"destination">>, Dest}, {<<"id">>, Id}]}.
+
 message_frame(#frame{cmd = send, headers = Headers, body = Body}) ->
     add_header(#frame{cmd = message, headers = Headers, body = Body},
                <<"message-id">>, make_uuid_base64()).
@@ -333,7 +351,7 @@ save_startup_timestamp() ->
 make_uuid() ->
     case get(startup_timestamp) of
         undefined ->
-            {ok, Timestamp} = application:get_env(startup_timestamp),
+            {ok, Timestamp} = application:get_env(mumq, startup_timestamp),
             put(startup_timestamp, Timestamp);
         Timestamp ->
             true
