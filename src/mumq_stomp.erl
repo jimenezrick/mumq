@@ -99,7 +99,8 @@ read_frame2(Conn) ->
     {Headers, Conn4} = read_headers(Conn3),
     BodySize = proplists:get_value(<<"content-length">>, Headers),
     {Body, Conn5} = read_body(Conn4, BodySize),
-    {ok, #frame{cmd = Cmd, headers = Headers, body = Body}, Conn5}.
+    {ok, #frame{cmd = Cmd, headers = Headers, body = Body},
+     Conn5#conn{frame_size = 0}}.
 
 read_command(Conn) ->
     {Line, Conn2} = read_line(Conn),
