@@ -1,6 +1,9 @@
 -module(mumq_client).
 
--export([connect/1,
+-export([frame_command/1,
+         frame_headers/1,
+         frame_body/1,
+         connect/1,
          connect_ssl/1,
          connect/3,
          connect/5,
@@ -15,6 +18,12 @@
          recv_dispatch/2]).
 
 -include("mumq.hrl").
+
+frame_command(Frame) -> Frame#frame.cmd.
+
+frame_headers(Frame) -> Frame#frame.headers.
+
+frame_body(Frame) -> Frame#frame.body.
 
 connect(Host) ->
     connect(Host, ?TCP_PORT, tcp, undefined, undefined).

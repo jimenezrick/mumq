@@ -11,6 +11,6 @@
                    {nodelay, true},
                    {keepalive, true}]).
 
--define(DEBUG, true).
+%-define(DEBUG, true).
 
 -record(frame, {cmd, headers = [], body = <<>>}).
