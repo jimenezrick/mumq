@@ -59,8 +59,8 @@ certificate if you don't have one:
 
 And also add to the μMQ application configuration the next parameters:
 
-	{certfile, "/path/to/mumq-cert.pem"}
-	{keyfile, "/path/to/mumq-key.pem"}
+	{ssl_certfile, "/path/to/mumq-cert.pem"}
+	{ssl_keyfile, "/path/to/mumq-key.pem"}
 
 
  License
