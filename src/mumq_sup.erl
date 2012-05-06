@@ -24,7 +24,13 @@ init(_Args) ->
         _ ->
             SslChild = []
     end,
+    case application:get_env(enable_irc) of
+        {ok, true} ->
+            IrcChild = [?CHILD(mumq_ircd, mumq_ircd, worker, [])];
+        undefined ->
+            IrcChild = []
+    end,
     {ok, {{one_for_one, 5, 10}, [?CHILD(mumq_pers, mumq_pers, worker, []),
                                  ?CHILD(mumq_qsup, mumq_qsup, supervisor, []),
                                  ?CHILD(mumq_tcpd, mumq_tcpd, worker,
-                                        [mumq_tcpd, tcp, ?TCP_PORT])] ++ SslChild}}.
+                                        [mumq_tcpd, tcp, ?TCP_PORT])] ++ SslChild ++ IrcChild}}.

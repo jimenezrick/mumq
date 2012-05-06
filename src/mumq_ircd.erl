@@ -24,11 +24,9 @@
 
 
 %%%
-%%% TODO: Poner en la app config un flag para activar/desactivar el IRC server
 %%% TODO: Usar allow_users de la app config, igual que en STOMP para autenticar usuarios
 %%%       Hacer una funcion auxiliar comun para STOMP y IRC
 %%% TODO: Actualizar README
-%%% TODO: Poner una config de ejemplo con todos los posibles valores
 %%%
 %%%  Los canales son solo de subscripcion, no se puede publicar
 %%%
