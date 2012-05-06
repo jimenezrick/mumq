@@ -1,6 +1,6 @@
 -module(mumq_stomp).
 
--on_load(save_startup_timestamp/0).
+-on_load(store_startup_timestamp/0).
 
 -export([make_conn/1,
          close_conn/1,
@@ -27,7 +27,9 @@
          add_content_length/1,
          get_header/2,
          serialize_frame/1,
-         serialize_frame_no_null/1,
+         serialize_frame_no_null/1]).
+
+-export([load_startup_timestamp/0,
          make_uuid/0,
          make_uuid_base64/0]).
 
@@ -350,18 +352,21 @@ serialize_frame(Frame) ->
 serialize_frame_no_null(Frame) ->
     lists:delete("\0", serialize_frame(Frame)).
 
-save_startup_timestamp() ->
+store_startup_timestamp() ->
     application:set_env(mumq, startup_timestamp, now()).
 
-make_uuid() ->
-    case get(startup_timestamp) of
+load_startup_timestamp() ->
+    case get(mumq_startup_timestamp) of
         undefined ->
             {ok, Timestamp} = application:get_env(mumq, startup_timestamp),
-            put(startup_timestamp, Timestamp);
+            put(mumq_startup_timestamp, Timestamp);
         Timestamp ->
             true
     end,
-    {make_ref(), Timestamp, node()}.
+    Timestamp.
+
+make_uuid() ->
+    {make_ref(), load_startup_timestamp(), node()}.
 
 make_uuid_base64() ->
     base64:encode(erlang:md5(term_to_binary(make_uuid()))).

@@ -1,12 +1,12 @@
 {application, mumq,
  [
   {description, "Message broker"},
-  {vsn, "0.2"},
+  {vsn, "0.3"},
   {modules, [
              mumq,
              mumq_app,
              mumq_client,
-             mumq_conn,
+             mumq_ircd,
              mumq_pers,
              mumq_qsup,
              mumq_queue,
@@ -20,7 +20,8 @@
                 mumq_pers,
                 mumq_qsup,
                 mumq_tcpd,
-                mumq_ssld
+                mumq_ssld,
+                mumq_ircd
                ]},
   {applications, [
                   kernel,

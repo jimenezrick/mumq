@@ -1,5 +1,6 @@
--define(TCP_PORT,                   61613).
 -define(TCP_ACCEPTORS,              4).
+-define(TCP_PORT,                   61613).
+-define(IRC_TCP_PORT,               6667).
 -define(MAX_FRAME_SIZE,             8 * 1024).
 -define(MAX_QUEUE_SIZE,             100).
 -define(MAX_QUEUE_INACTIVITY,       7 * 24 * 60).
