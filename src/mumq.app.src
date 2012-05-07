@@ -32,15 +32,13 @@
                  ]},
   {mod, {mumq_app, []}},
   {env, [
-         %{ssl_certfile, "/path/to/mumq-cert.pem"}
-         %{ssl_keyfile,  "/path/to/mumq-key.pem"}
-
-         %{allow_users, [{"user", "pass"}]}
-         %{enable_irc,  true}
-
-         %{max_frame_size,             8 * 1024}
-         %{max_queue_size,             100}
-         %{max_queue_inactivity,       7 * 24 * 60}
+         %{ssl_certfile, "/path/to/mumq-cert.pem"},
+         %{ssl_keyfile,  "/path/to/mumq-key.pem"},
+         %{allow_users,  [{"user", "pass"}]},
+         %{enable_irc,                 true},
+         %{max_frame_size,             8192},
+         %{max_queue_size,             100},
+         %{max_queue_inactivity,       10080},
          %{subscribers_purge_interval, 60}
         ]}
  ]}.
