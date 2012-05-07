@@ -2,8 +2,7 @@
 
 -behaviour(gen_tcpd).
 
--export([start_link/0,
-         handle_connection/1]).
+-export([start_link/0]).
 
 -export([init/1,
          handle_connection/2,
@@ -17,9 +16,7 @@
                        {nodelay, true},
                        {keepalive, true}]).
 
--record(state, {servname = net_adm:localhost(),
-                sock,
-                nick}).
+-record(state, {servname = net_adm:localhost(), nick, user}).
 
 
 
@@ -31,21 +28,14 @@
 %%%  Los canales son solo de subscripcion, no se puede publicar
 %%%
 
-%%% FIXME: Como debe presentarse el servidor? Para que lo pille el cliente de IRC?
-%%% FIXME: Como se reciben los mensajes publicos?
+%%% FIXME: Como se reciben los mensajes publicos? PRIVMSG
 %%%
 %%% XXX: Los cliente se subscriben con JOIN y se desubscriben al salir o al morir
 
-%%% Strip \r from line
-%%% NICK name
-%%% USER username ...
 %%% JOIN #channel
 %%% PART #channel ...
 %%% QUIT ...
 %%%
-
-
-
 
 %%% Secuencia de logeo:
 %%% Opcional: PASS <pass>
@@ -63,31 +53,26 @@ init(_Args) ->
 
 
 
-handle_connection(Socket, State) ->
-    lager:info("*** IRC client connected"), % XXX
-
-    State2 = State#state{sock = Socket, nick = "fuu"}, % XXX
-
-    reply_welcome(State2), % TODO: El welcome se hace DESPUES de recibir NICK y USER
-    handle_connection(State2).
 
 
 
-
-handle_connection(State = #state{sock = Socket0}) ->
-    Socket = gen_tcpd:sock(Socket0),
-    receive
-        {tcp, Socket, Line} ->
-            lager:info("*** IRC line: ~s", [Line]),
-            gen_tcpd:setopts(State#state.sock, [{active, once}]);
-        {tcp_closed, Socket} ->
-            lager:info("*** IRC client disconnected");
-        {tcp_error, Socket, Reason} ->
-            lager:info("*** IRC client error");
-        Msg ->
-            io:format("*** Unkown Msg = ~p~n", [Msg])
+handle_connection(Socket, State = #state{nick = Nick, user = User}) when
+        Nick == undefined; User == undefined ->
+    case receive_message(Socket) of
+        {'NICK', [Nick2]} ->
+            State2 = State#state{nick = Nick2};
+        {'USER', [User2 | _]} ->
+            State2 = State#state{user = User2}
     end,
-    handle_connection(State).
+    lager:info("New IRC client from ~s", [gen_tcpd:peername(Socket)]),
+    handle_connection(Socket, State2);
+handle_connection(Socket, State) ->
+    reply_welcome(Socket, State),
+    handle_client(Socket, State).
+
+
+
+
 
 handle_info({'EXIT', _Pid, _}, _State) ->
     noreply.
@@ -101,17 +86,74 @@ terminate(_Reason, _State) ->
 
 
 
-reply_welcome(State) ->
+
+
+
+
+
+
+
+
+handle_client(Socket, State) ->
+    case receive_message(Socket) of
+        {'PING', Args} ->
+            reply(Socket, State, 'PONG', Args)
+    end,
+    handle_client(Socket, State).
+
+
+
+
+
+
+
+
+
+
+
+receive_message(Socket) ->
+    SocketPort = gen_tcpd:sock(Socket),
+    receive
+        {tcp, SocketPort, Line} ->
+            gen_tcpd:setopts(Socket, [{active, once}]),
+            Line2 = strip_line(Line),
+            lager:debug("IRC message from ~s: ~s", [gen_tcpd:peername(Socket), Line2]),
+            parse_message(Line2);
+        % XXX XXX XXX
+        {tcp_closed, SocketPort} ->
+            lager:info("*** IRC client disconnected");
+        {tcp_error, SocketPort, Reason} ->
+            lager:info("*** IRC client error")
+            % XXX XXX XXX
+    end.
+
+
+
+
+
+strip_line(Line) ->
+    Line2 = string:strip(Line, right, $\n),
+    string:strip(Line2, right, $\r).
+
+parse_message(Line) ->
+    Tokens = string:tokens(Line, " "),
+    {list_to_atom(hd(Tokens)), tl(Tokens)}.
+
+reply_welcome(Socket, State) ->
     {ok, Version} = application:get_key(vsn),
     {{Year, Month, Day}, {Hour, Min, Sec}} = calendar:now_to_local_time(
             mumq_stomp:load_startup_timestamp()),
     StartupDate = io_lib:format("~B/~B/~B ~B:~2..0B:~2..0B", [Year, Month, Day, Hour, Min, Sec]),
-    reply_code(State, 1, ":Welcome to the Internet Relay Network ~s", [State#state.nick]),
-    reply_code(State, 2, ":Your host is ~s, running version muMQ-~s", [State#state.servname, Version]),
-    reply_code(State, 3, ":This server was created ~s", [StartupDate]),
-    reply_code(State, 4, "~s muMQ-~s", [State#state.servname, Version]).
+    reply_code(Socket, State, 1, ":Welcome to the Internet Relay Network ~s", [State#state.nick]),
+    reply_code(Socket, State, 2, ":Your host is ~s, running version muMQ-~s", [State#state.servname, Version]),
+    reply_code(Socket, State, 3, ":This server was created ~s", [StartupDate]),
+    reply_code(Socket, State, 4, "~s muMQ-~s", [State#state.servname, Version]).
 
-reply_code(State, Code, Format, Data) ->
+reply_code(Socket, State, Code, Format, Data) ->
     Line = io_lib:format(":~s ~3..0B ~s " ++ Format ++ "\r\n",
                          [State#state.servname, Code, State#state.nick] ++ Data),
-    gen_tcpd:send(State#state.sock, Line).
+    gen_tcpd:send(Socket, Line).
+
+reply(Socket, State, Cmd, Args) ->
+    Line = io_lib:format(":~s ~s ~s\r\n", [State#state.servname, atom_to_list(Cmd), string:join(Args, " ")]),
+    gen_tcpd:send(Socket, Line).
