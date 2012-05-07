@@ -27,7 +27,7 @@ start_link(Name, Type, Port) ->
     end,
     gen_tcpd:start_link({local, Name}, ?MODULE, Name, Type, Port,
                         [{acceptors, ?TCP_ACCEPTORS},
-                         {socket_options, ?TCP_OPTS ++ [{reuseaddr, true}] ++ SslOpts}]).
+                         {socket_options, ?STOMP_TCP_OPTS ++ [{reuseaddr, true}] ++ SslOpts}]).
 
 init(mumq_tcpd) ->
     process_flag(trap_exit, true),

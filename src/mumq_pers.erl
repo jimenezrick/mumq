@@ -16,10 +16,10 @@
          terminate/2,
          code_change/3]).
 
--define(ETS_OPTS, [ordered_set,
-                   named_table,
-                   public,
-                   {read_concurrency, true}]).
+-define(PERS_ETS_OPTS, [ordered_set,
+                        named_table,
+                        public,
+                        {read_concurrency, true}]).
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -37,7 +37,7 @@ send_unread_messages(Queue, SubId, SendTo) ->
         end, lookup_nested_queues(Queue)).
 
 init(_Args) ->
-    ets:new(?MODULE, ?ETS_OPTS),
+    ets:new(?MODULE, ?PERS_ETS_OPTS),
     {ok, gb_trees:empty()}.
 
 handle_call({start_queue, Queue}, _From, Queues) ->

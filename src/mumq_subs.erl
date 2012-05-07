@@ -7,13 +7,13 @@
          get_subscriptions/1,
          subscribed_clients/0]).
 
--define(ETS_OPTS, [bag,
-                   named_table,
-                   public,
-                   {read_concurrency, true}]).
+-define(SUBS_ETS_OPTS, [bag,
+                        named_table,
+                        public,
+                        {read_concurrency, true}]).
 
 create_table() ->
-    ets:new(?MODULE, ?ETS_OPTS).
+    ets:new(?MODULE, ?SUBS_ETS_OPTS).
 
 add_subscription(Queue, Id, DeliveryProc) ->
     case ets:match_object(?MODULE, {self(), Queue, Id, DeliveryProc}) of

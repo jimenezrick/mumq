@@ -26,10 +26,10 @@ frame_headers(Frame) -> Frame#frame.headers.
 frame_body(Frame) -> Frame#frame.body.
 
 connect(Host) ->
-    connect(Host, ?TCP_PORT, tcp, undefined, undefined).
+    connect(Host, ?STOMP_TCP_PORT, tcp, undefined, undefined).
 
 connect_ssl(Host) ->
-    connect(Host, ?TCP_PORT + 1, ssl, undefined, unsubscribe).
+    connect(Host, ?STOMP_TCP_PORT + 1, ssl, undefined, unsubscribe).
 
 connect(Host, Port, Type) ->
     connect(Host, Port, Type, undefined, undefined).
@@ -37,9 +37,9 @@ connect(Host, Port, Type) ->
 connect(Host, Port, Type, Login, Pass) ->
     Res = case Type of
         tcp ->
-            gen_tcp:connect(Host, Port, ?TCP_OPTS);
+            gen_tcp:connect(Host, Port, ?STOMP_TCP_OPTS);
         ssl ->
-            ssl:connect(Host, Port, ?TCP_OPTS)
+            ssl:connect(Host, Port, ?STOMP_TCP_OPTS)
     end,
     case Res of
         {ok, Socket} ->

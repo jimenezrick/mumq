@@ -20,7 +20,7 @@ init(_Args) ->
     of
         {{ok, _}, {ok, _}} ->
             SslChild = [?CHILD(mumq_ssld, mumq_tcpd, worker,
-                               [mumq_ssld, ssl, ?TCP_PORT + 1])];
+                               [mumq_ssld, ssl, ?STOMP_TCP_PORT + 1])];
         _ ->
             SslChild = []
     end,
@@ -33,4 +33,4 @@ init(_Args) ->
     {ok, {{one_for_one, 5, 10}, [?CHILD(mumq_pers, mumq_pers, worker, []),
                                  ?CHILD(mumq_qsup, mumq_qsup, supervisor, []),
                                  ?CHILD(mumq_tcpd, mumq_tcpd, worker,
-                                        [mumq_tcpd, tcp, ?TCP_PORT])] ++ SslChild ++ IrcChild}}.
+                                        [mumq_tcpd, tcp, ?STOMP_TCP_PORT])] ++ SslChild ++ IrcChild}}.
