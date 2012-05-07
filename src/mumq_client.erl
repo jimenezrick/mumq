@@ -43,7 +43,7 @@ connect(Host, Port, Type, Login, Pass) ->
     end,
     case Res of
         {ok, Socket} ->
-            Conn = mumq_stomp:make_conn(make_socket(Socket, Type)),
+            Conn = mumq_stomp:make_conn(gen_tcpd:make_socket(Type, Socket)),
             if
                 Login /= undefined, Pass /= undefined ->
                     mumq_stomp:write_frame(Conn, mumq_stomp:connect_frame(Pass, Login));
@@ -54,9 +54,6 @@ connect(Host, Port, Type, Login, Pass) ->
         {error, Reason} ->
             {error, Reason}
     end.
-
-make_socket(Socket, tcp)  -> {gen_tcp, Socket};
-make_socket(Socket, Type) -> {Type, Socket}.
 
 wait_connected(Conn) ->
     case recv(Conn) of

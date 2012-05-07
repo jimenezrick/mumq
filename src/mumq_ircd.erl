@@ -68,19 +68,24 @@ handle_connection(Socket, State) ->
 
     State2 = State#state{sock = Socket, nick = "fuu"}, % XXX
 
-    reply_welcome(State2),
+    reply_welcome(State2), % TODO: El welcome se hace DESPUES de recibir NICK y USER
     handle_connection(State2).
 
 
 
 
-handle_connection(State = #state{sock = Socket}) ->
+handle_connection(State = #state{sock = Socket0}) ->
+    Socket = gen_tcpd:sock(Socket0),
     receive
         {tcp, Socket, Line} ->
-            io:format("Line: ~p~n", [Line]),
-            gen_tcpd:setopts(Socket, [{active, once}])
-        %{tcp_closed, Socket} ->
-        %{tcp_error, Socket, Reason} ->
+            lager:info("*** IRC line: ~s", [Line]),
+            gen_tcpd:setopts(State#state.sock, [{active, once}]);
+        {tcp_closed, Socket} ->
+            lager:info("*** IRC client disconnected");
+        {tcp_error, Socket, Reason} ->
+            lager:info("*** IRC client error");
+        Msg ->
+            io:format("*** Unkown Msg = ~p~n", [Msg])
     end,
     handle_connection(State).
 
