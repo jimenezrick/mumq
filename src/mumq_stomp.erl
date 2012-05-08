@@ -46,17 +46,13 @@
                buf = []}).
 
 make_conn(Socket) ->
-    {ok, Peer0} = gen_tcpd:peername(Socket),
-    Peer = format_peer(Peer0),
+    Peer = mumq_util:format_peername(Socket),
     {ok, [{recbuf, RecvLen}]} = gen_tcpd:getopts(Socket, [recbuf]),
     Max = max_frame_size(),
     #conn{sock = Socket, peer = Peer, recv_len = RecvLen, max_frame_size = Max}.
 
 close_conn(Conn) ->
     gen_tcpd:close(Conn#conn.sock).
-
-format_peer({{O1, O2, O3, O4}, P}) ->
-    io_lib:format("~B.~B.~B.~B:~B", [O1, O2, O3, O4, P]).
 
 max_frame_size() ->
     case application:get_env(mumq, max_frame_size) of

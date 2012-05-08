@@ -21,6 +21,7 @@
 
 
 %%%
+%%% Opcional: PASS <pass>
 %%% TODO: Usar allow_users de la app config, igual que en STOMP para autenticar usuarios
 %%%       Hacer una funcion auxiliar comun para STOMP y IRC
 %%% TODO: Actualizar README
@@ -34,13 +35,7 @@
 
 %%% JOIN #channel
 %%% PART #channel ...
-%%% QUIT ...
-%%%
 
-%%% Secuencia de logeo:
-%%% Opcional: PASS <pass>
-%%%           NICK <nick>
-%%%           USER <user> ...
 
 start_link() ->
     gen_tcpd:start_link({local, ?MODULE}, ?MODULE, [], tcp, ?IRC_TCP_PORT,
@@ -51,11 +46,6 @@ init(_Args) ->
     process_flag(trap_exit, true),
     {ok, #state{}}.
 
-
-
-
-
-
 handle_connection(Socket, State = #state{nick = Nick, user = User}) when
         Nick == undefined; User == undefined ->
     case receive_message(Socket) of
@@ -64,15 +54,11 @@ handle_connection(Socket, State = #state{nick = Nick, user = User}) when
         {'USER', [User2 | _]} ->
             State2 = State#state{user = User2}
     end,
-    lager:info("New IRC client from ~s", [gen_tcpd:peername(Socket)]),
     handle_connection(Socket, State2);
 handle_connection(Socket, State) ->
+    lager:info("New IRC client from ~s", [mumq_util:format_peername(Socket)]),
     reply_welcome(Socket, State),
     handle_client(Socket, State).
-
-
-
-
 
 handle_info({'EXIT', _Pid, _}, _State) ->
     noreply.
@@ -97,9 +83,13 @@ terminate(_Reason, _State) ->
 handle_client(Socket, State) ->
     case receive_message(Socket) of
         {'PING', Args} ->
-            reply(Socket, State, 'PONG', Args)
-    end,
-    handle_client(Socket, State).
+            reply(Socket, State, 'PONG', Args),
+            handle_client(Socket, State);
+        {'QUIT', _} ->
+            lager:info("IRC connection closed by ~s",
+                       [mumq_util:format_peername(Socket)]),
+            gen_tcpd:close(Socket)
+    end.
 
 
 
@@ -117,15 +107,20 @@ receive_message(Socket) ->
         {tcp, SocketPort, Line} ->
             gen_tcpd:setopts(Socket, [{active, once}]),
             Line2 = strip_line(Line),
-            lager:debug("IRC message from ~s: ~s", [gen_tcpd:peername(Socket), Line2]),
+            lager:debug("IRC message from ~s: ~s",
+                        [mumq_util:format_peername(Socket), Line2]),
             parse_message(Line2);
-        % XXX XXX XXX
+        % XXX XXX XXX: Poner un try...catch
         {tcp_closed, SocketPort} ->
-            lager:info("*** IRC client disconnected");
+            lager:debug("*** IRC client disconnected");
         {tcp_error, SocketPort, Reason} ->
-            lager:info("*** IRC client error")
-            % XXX XXX XXX
+            lager:debug("*** IRC client error")
+        % XXX XXX XXX
     end.
+
+
+
+
 
 
 

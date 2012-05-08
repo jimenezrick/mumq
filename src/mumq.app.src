@@ -13,7 +13,8 @@
              mumq_stomp,
              mumq_subs,
              mumq_sup,
-             mumq_tcpd
+             mumq_tcpd,
+             mumq_util
             ]},
   {registered, [
                 mumq_sup,
